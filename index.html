@@ -22,7 +22,7 @@
 
 <script>
   const airport = 'EGLL';
-  let mode = 'arrivals';
+  let mode = 'arrivals'; // 'arrivals' or 'departures'
 
   async function getToken() {
     try {
@@ -55,7 +55,7 @@
       const data = await res.json();
       console.log('IVAO API response:', data);
 
-      if (!data.clients || !data.clients.pilots) {
+      if (!data.clients || !Array.isArray(data.clients.pilots)) {
         throw new Error('API response missing "clients.pilots" array');
       }
 
@@ -66,7 +66,7 @@
       const rows = flights.slice(0, 20).map(f => {
         const route = mode === 'arrivals' ? f.dep : f.arr;
         const timeUnix = mode === 'arrivals' ? f.arrtime : f.deptime;
-        const timeStr = timeUnix ? new Date(timeUnix * 1000).toISOString().substr(11, 5) : 'N/A';
+        const timeStr = timeUnix && timeUnix > 0 ? new Date(timeUnix * 1000).toISOString().substr(11, 5) : 'N/A';
         return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
       }).join('');
 
@@ -75,11 +75,6 @@
       console.error('Flight fetch error:', e);
       document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error loading flights</td></tr>';
     }
-  }
-
-  function toggleMode() {
-    mode = (mode === 'arrivals') ? 'departures' : 'arrivals';
-    document.getElementById('mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
   }
 
   async function update() {
@@ -91,11 +86,21 @@
     }
   }
 
-  update();
-  setInterval(() => {
+  function toggleMode() {
+    mode = (mode === 'arrivals') ? 'departures' : 'arrivals';
+    document.getElementById('mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+  }
+
+  async function cycle() {
     toggleMode();
-    update();
-  }, 10000); // switch mode and update every 10 seconds
+    await update();
+  }
+
+  // Initial load
+  update();
+
+  // Toggle mode and update every 10 seconds
+  setInterval(cycle, 10000);
 </script>
 </body>
 </html>
