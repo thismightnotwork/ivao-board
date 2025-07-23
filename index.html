@@ -25,35 +25,49 @@
   let mode = 'arrivals';
 
   async function getToken() {
-    const res = await fetch('https://ivao-token-server.onrender.com/token');
-    if (!res.ok) throw new Error('Failed to get token');
-    const data = await res.json();
-    return data.token;
+    try {
+      const res = await fetch('https://ivao-token-server.onrender.com/token');
+      if (!res.ok) throw new Error('Token server error: ' + res.status);
+      const data = await res.json();
+      if (!data.token) throw new Error('No token in response');
+      return data.token;
+    } catch (e) {
+      console.error('Token fetch failed:', e);
+      throw e;
+    }
   }
 
   async function fetchFlights(token) {
-    const url = 'https://api.ivao.aero/v2/tracker/whazzup';
-    const res = await fetch(url, {
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/json'
+    try {
+      const url = 'https://api.ivao.aero/v2/tracker/whazzup';
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Accept': 'application/json'
+        }
+      });
+      if (!res.ok) {
+        console.error('IVAO API error:', res.status, await res.text());
+        throw new Error('Failed to fetch IVAO flight data');
       }
-    });
-    if (!res.ok) throw new Error('Failed to fetch flights');
-    const data = await res.json();
 
-    const flights = data.instances.filter(f =>
-      mode === 'arrivals' ? f.arricao === airport : f.depicao === airport
-    );
+      const data = await res.json();
+      const flights = data.instances.filter(f =>
+        mode === 'arrivals' ? f.arricao === airport : f.depicao === airport
+      );
 
-    const rows = flights.slice(0, 20).map(f => {
-      const route = mode === 'arrivals' ? f.depicao : f.arricao;
-      const time = mode === 'arrivals' ? f.arrivaltime : f.departuretime;
-      const timeStr = time ? new Date(time * 1000).toISOString().substr(11, 5) : 'N/A';
-      return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
-    }).join('');
+      const rows = flights.slice(0, 20).map(f => {
+        const route = mode === 'arrivals' ? f.depicao : f.arricao;
+        const time = mode === 'arrivals' ? f.arrivaltime : f.departuretime;
+        const timeStr = time ? new Date(time * 1000).toISOString().substr(11, 5) : 'N/A';
+        return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
+      }).join('');
 
-    document.getElementById('flights').innerHTML = rows || '<tr><td colspan="3">No flights</td></tr>';
+      document.getElementById('flights').innerHTML = rows || '<tr><td colspan="3">No flights</td></tr>';
+    } catch (e) {
+      console.error('Flight fetch error:', e);
+      document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error loading flights</td></tr>';
+    }
   }
 
   function toggleMode() {
@@ -66,11 +80,11 @@
       const token = await getToken();
       await fetchFlights(token);
     } catch (e) {
-      console.error(e);
-      document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+      document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error getting data</td></tr>';
     }
   }
 
+  // Initial and repeating updates
   update();
   setInterval(update, 5000);      // Refresh every 5 seconds
   setInterval(() => {
