@@ -4,10 +4,11 @@
   <meta charset="utf-8" />
   <title>IVAO Flight Board – EGLL</title>
   <style>
-    body { font-family: Arial, sans-serif; }
-    h1 { text-align: center; }
-    table { width: 90%; margin: 0 auto; border-collapse: collapse; }
+    body { font-family: Arial, sans-serif; background: #f8f8f8; }
+    h1 { text-align: center; margin-top: 20px; }
+    table { width: 90%; margin: 20px auto; border-collapse: collapse; background: #fff; }
     th, td { padding: 8px; border: 1px solid #ddd; text-align: center; }
+    th { background-color: #e0e0e0; }
   </style>
 </head>
 <body>
@@ -16,7 +17,7 @@
     <thead>
       <tr><th>Callsign</th><th>Route</th><th>Est. Time (UTC)</th></tr>
     </thead>
-    <tbody id="flights"></tbody>
+    <tbody id="flights"><tr><td colspan="3">Loading...</td></tr></tbody>
   </table>
 
 <script>
@@ -24,7 +25,7 @@
   let mode = 'arrivals';
 
   async function getToken() {
-    const res = await fetch('https://ivao-token-server.onrender.com'); // replace with your deployed token server URL
+    const res = await fetch('https://ivao-token-server.onrender.com/token');
     if (!res.ok) throw new Error('Failed to get token');
     const data = await res.json();
     return data.token;
@@ -33,16 +34,14 @@
   async function fetchFlights(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
     const res = await fetch(url, {
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
+      headers: { 'Authorization': 'Bearer ' + token }
     });
     if (!res.ok) throw new Error('Failed to fetch flights');
     const data = await res.json();
 
-    const flights = data.instances.filter(f => {
-      return mode === 'arrivals' ? f.arricao === airport : f.depicao === airport;
-    });
+    const flights = data.instances.filter(f =>
+      mode === 'arrivals' ? f.arricao === airport : f.depicao === airport
+    );
 
     const rows = flights.slice(0, 20).map(f => {
       const route = mode === 'arrivals' ? f.depicao : f.arricao;
@@ -55,7 +54,7 @@
   }
 
   function toggleMode() {
-    mode = mode === 'arrivals' ? 'departures' : 'arrivals';
+    mode = (mode === 'arrivals') ? 'departures' : 'arrivals';
     document.getElementById('mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
   }
 
@@ -74,7 +73,7 @@
   setInterval(() => {
     toggleMode();
     update();
-  }, 5000);                     // Switch arrivals/departures every 15 seconds
+  }, 15000);                     // Switch every 15 seconds
 </script>
 </body>
 </html>
