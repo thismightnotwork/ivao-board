@@ -4,20 +4,49 @@
   <meta charset="utf-8" />
   <title>IVAO Flight Board – EGLL</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f8f8f8; }
-    h1 { text-align: center; margin-top: 20px; }
-    table { width: 90%; margin: 20px auto; border-collapse: collapse; background: #fff; }
-    th, td { padding: 8px; border: 1px solid #ddd; text-align: center; }
-    th { background-color: #e0e0e0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: transparent;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 90%;
+      margin: 0 auto;
+      border-collapse: collapse;
+      background: transparent;
+      color: white;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.3);
+      text-align: center;
+    }
+    th {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
   </style>
 </head>
 <body>
   <h1>EGLL – <span id="mode">Arrivals</span></h1>
   <table>
     <thead>
-      <tr><th>Callsign</th><th>Route</th><th>Est. Time (UTC)</th></tr>
+      <tr>
+        <th>Callsign</th>
+        <th>Arrival Airport</th>
+        <th>Est. Time (UTC)</th>
+        <th>Aircraft Type</th>
+      </tr>
     </thead>
-    <tbody id="flights"><tr><td colspan="3">Loading...</td></tr></tbody>
+    <tbody id="flights">
+      <tr><td colspan="4">Loading...</td></tr>
+    </tbody>
   </table>
 
 <script>
@@ -37,10 +66,8 @@
     }
   }
 
-  // Convert seconds since midnight to HH:mm string
   function secondsToTime(sec) {
     if (sec === null || sec === undefined) return 'N/A';
-    // sec might be a number like 1800 for 00:30 UTC
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
@@ -68,7 +95,6 @@
         throw new Error('API response missing "clients.pilots" array');
       }
 
-      // Filter flights based on flightPlan departure/arrival
       const flights = data.clients.pilots.filter(f => {
         if (!f.flightPlan) return false;
         if (mode === 'arrivals') {
@@ -78,19 +104,31 @@
         }
       });
 
-      // Create rows
-      const rows = flights.slice(0, 20).map(f => {
-        const route = mode === 'arrivals' ? f.flightPlan.departureId : f.flightPlan.arrivalId;
-        const timeSeconds = mode === 'arrivals' ? f.flightPlan.arrivalTime : f.flightPlan.departureTime;
-        const timeStr = secondsToTime(timeSeconds);
+      flights.sort((a, b) => {
+        const timeA = mode === 'arrivals' ? a.flightPlan.arrivalTime : a.flightPlan.departureTime;
+        const timeB = mode === 'arrivals' ? b.flightPlan.arrivalTime : b.flightPlan.departureTime;
+        return (timeA || 0) - (timeB || 0);
+      });
 
-        return `<tr><td>${f.callsign}</td><td>${route || 'N/A'}</td><td>${timeStr}</td></tr>`;
+      const rows = flights.slice(0, 20).map(f => {
+        const arrivalAirport = f.flightPlan.arrivalId || 'N/A';
+        const estTimeSec = mode === 'arrivals' ? f.flightPlan.arrivalTime : f.flightPlan.departureTime;
+        const estTime = secondsToTime(estTimeSec);
+        const aircraftType = f.flightPlan.aircraftId || 'N/A';
+
+        return `
+          <tr>
+            <td>${f.callsign}</td>
+            <td>${arrivalAirport}</td>
+            <td>${estTime}</td>
+            <td>${aircraftType}</td>
+          </tr>`;
       }).join('');
 
-      document.getElementById('flights').innerHTML = rows || '<tr><td colspan="3">No flights</td></tr>';
+      document.getElementById('flights').innerHTML = rows || '<tr><td colspan="4">No flights</td></tr>';
     } catch (e) {
       console.error('Flight fetch error:', e);
-      document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error loading flights</td></tr>';
+      document.getElementById('flights').innerHTML = '<tr><td colspan="4">Error loading flights</td></tr>';
     }
   }
 
@@ -104,15 +142,18 @@
       const token = await getToken();
       await fetchFlights(token);
     } catch (e) {
-      document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error getting data</td></tr>';
+      document.getElementById('flights').innerHTML = '<tr><td colspan="4">Error getting data</td></tr>';
     }
   }
 
+  // Initial update
   update();
+
+  // Toggle mode and update every 10 seconds
   setInterval(() => {
     toggleMode();
     update();
-  }, 10000); // toggle mode and update every 10 seconds
+  }, 10000);
 </script>
 </body>
 </html>
