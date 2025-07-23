@@ -34,7 +34,10 @@
   async function fetchFlights(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
     const res = await fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/json'
+      }
     });
     if (!res.ok) throw new Error('Failed to fetch flights');
     const data = await res.json();
@@ -46,7 +49,7 @@
     const rows = flights.slice(0, 20).map(f => {
       const route = mode === 'arrivals' ? f.depicao : f.arricao;
       const time = mode === 'arrivals' ? f.arrivaltime : f.departuretime;
-      const timeStr = time ? new Date(time * 1000).toISOString().substr(11,5) : 'N/A';
+      const timeStr = time ? new Date(time * 1000).toISOString().substr(11, 5) : 'N/A';
       return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
     }).join('');
 
@@ -73,7 +76,7 @@
   setInterval(() => {
     toggleMode();
     update();
-  }, 15000);                     // Switch every 15 seconds
+  }, 15000);                     // Switch mode every 15 seconds
 </script>
 </body>
 </html>
