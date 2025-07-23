@@ -53,13 +53,13 @@
       }
 
       const data = await res.json();
-      console.log('IVAO API response:', data); // Debug log
+      console.log('IVAO API response:', data);
 
-      if (!data.instances) {
-        throw new Error('API response missing "instances" array');
+      if (!data.clients || !data.clients.pilots) {
+        throw new Error('API response missing "clients.pilots" array');
       }
 
-      const flights = data.instances.filter(f =>
+      const flights = data.clients.pilots.filter(f =>
         mode === 'arrivals' ? f.arr === airport : f.dep === airport
       );
 
@@ -92,11 +92,10 @@
   }
 
   update();
-  setInterval(update, 5000);
   setInterval(() => {
     toggleMode();
     update();
-  }, 15000);
+  }, 10000); // switch mode and update every 10 seconds
 </script>
 </body>
 </html>
