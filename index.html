@@ -47,11 +47,18 @@
         }
       });
       if (!res.ok) {
-        console.error('IVAO API error:', res.status, await res.text());
+        const errText = await res.text();
+        console.error('IVAO API error:', res.status, errText);
         throw new Error('Failed to fetch IVAO flight data');
       }
 
       const data = await res.json();
+      console.log('IVAO API response:', data); // Debug log
+
+      if (!data.instances) {
+        throw new Error('API response missing "instances" array');
+      }
+
       const flights = data.instances.filter(f =>
         mode === 'arrivals' ? f.arricao === airport : f.depicao === airport
       );
@@ -84,13 +91,12 @@
     }
   }
 
-  // Initial and repeating updates
   update();
-  setInterval(update, 5000);      // Refresh every 5 seconds
+  setInterval(update, 5000);
   setInterval(() => {
     toggleMode();
     update();
-  }, 15000);                     // Switch mode every 15 seconds
+  }, 15000);
 </script>
 </body>
 </html>
