@@ -60,13 +60,13 @@
       }
 
       const flights = data.instances.filter(f =>
-        mode === 'arrivals' ? f.arricao === airport : f.depicao === airport
+        mode === 'arrivals' ? f.arr === airport : f.dep === airport
       );
 
       const rows = flights.slice(0, 20).map(f => {
-        const route = mode === 'arrivals' ? f.depicao : f.arricao;
-        const time = mode === 'arrivals' ? f.arrivaltime : f.departuretime;
-        const timeStr = time ? new Date(time * 1000).toISOString().substr(11, 5) : 'N/A';
+        const route = mode === 'arrivals' ? f.dep : f.arr;
+        const timeUnix = mode === 'arrivals' ? f.arrtime : f.deptime;
+        const timeStr = timeUnix ? new Date(timeUnix * 1000).toISOString().substr(11, 5) : 'N/A';
         return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
       }).join('');
 
