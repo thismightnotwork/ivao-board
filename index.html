@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>IVAO Flight Board – EGLL</title>
+  <title>IVAO Flight Board</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -14,7 +14,34 @@
     h1 {
       text-align: center;
       margin-top: 0;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
+    }
+    #airportInputContainer {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    #airportInput {
+      padding: 6px 10px;
+      font-size: 16px;
+      width: 100px;
+      text-transform: uppercase;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      outline: none;
+      color: black;
+    }
+    #updateBtn {
+      padding: 6px 12px;
+      font-size: 16px;
+      margin-left: 8px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background: #444;
+      color: white;
+    }
+    #updateBtn:hover {
+      background: #666;
     }
     table {
       width: 90%;
@@ -34,7 +61,11 @@
   </style>
 </head>
 <body>
-  <h1>EGLL – <span id="mode">Arrivals</span></h1>
+  <h1><span id="airportTitle">EGLL</span> – <span id="mode">Arrivals</span></h1>
+  <div id="airportInputContainer">
+    <input type="text" id="airportInput" placeholder="Enter ICAO" maxlength="4" />
+    <button id="updateBtn">Update</button>
+  </div>
   <table>
     <thead>
       <tr>
@@ -50,8 +81,12 @@
   </table>
 
 <script>
-  const airport = 'EGLL';
+  let airport = 'EGLL';
   let mode = 'arrivals';
+
+  const airportTitle = document.getElementById('airportTitle');
+  const airportInput = document.getElementById('airportInput');
+  const updateBtn = document.getElementById('updateBtn');
 
   async function getToken() {
     try {
@@ -95,7 +130,7 @@
         throw new Error('API response missing "clients.pilots" array');
       }
 
-      const flights = data.clients.pilots.filter(f => {
+      const filtered = data.clients.pilots.filter(f => {
         if (!f.flightPlan) return false;
         if (mode === 'arrivals') {
           return f.flightPlan.arrivalId && f.flightPlan.arrivalId.toUpperCase() === airport;
@@ -104,13 +139,13 @@
         }
       });
 
-      flights.sort((a, b) => {
+      filtered.sort((a, b) => {
         const timeA = mode === 'arrivals' ? a.flightPlan.arrivalTime : a.flightPlan.departureTime;
         const timeB = mode === 'arrivals' ? b.flightPlan.arrivalTime : b.flightPlan.departureTime;
         return (timeA || 0) - (timeB || 0);
       });
 
-      const rows = flights.slice(0, 20).map(f => {
+      const rows = filtered.slice(0, 20).map(f => {
         const arrivalAirport = f.flightPlan.arrivalId || 'N/A';
         const estTimeSec = mode === 'arrivals' ? f.flightPlan.arrivalTime : f.flightPlan.departureTime;
         const estTime = secondsToTime(estTimeSec);
@@ -145,6 +180,27 @@
       document.getElementById('flights').innerHTML = '<tr><td colspan="4">Error getting data</td></tr>';
     }
   }
+
+  // Update airport and reload data
+  function setAirport(newAirport) {
+    if (!newAirport || newAirport.length !== 4) {
+      alert('Please enter a valid 4-letter ICAO code');
+      return;
+    }
+    airport = newAirport.toUpperCase();
+    airportTitle.textContent = airport;
+    update();
+  }
+
+  // Event listeners for input and button
+  updateBtn.addEventListener('click', () => {
+    setAirport(airportInput.value.trim());
+  });
+  airportInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      setAirport(airportInput.value.trim());
+    }
+  });
 
   // Initial update
   update();
