@@ -22,7 +22,7 @@
 
 <script>
   const airport = 'EGLL';
-  let mode = 'arrivals'; // 'arrivals' or 'departures'
+  let mode = 'arrivals';
 
   async function getToken() {
     try {
@@ -35,6 +35,15 @@
       console.error('Token fetch failed:', e);
       throw e;
     }
+  }
+
+  // Convert seconds since midnight to HH:mm string
+  function secondsToTime(sec) {
+    if (sec === null || sec === undefined) return 'N/A';
+    // sec might be a number like 1800 for 00:30 UTC
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
 
   async function fetchFlights(token) {
@@ -55,19 +64,27 @@
       const data = await res.json();
       console.log('IVAO API response:', data);
 
-      if (!data.clients || !Array.isArray(data.clients.pilots)) {
+      if (!data.clients || !data.clients.pilots) {
         throw new Error('API response missing "clients.pilots" array');
       }
 
-      const flights = data.clients.pilots.filter(f =>
-        mode === 'arrivals' ? f.arr === airport : f.dep === airport
-      );
+      // Filter flights based on flightPlan departure/arrival
+      const flights = data.clients.pilots.filter(f => {
+        if (!f.flightPlan) return false;
+        if (mode === 'arrivals') {
+          return f.flightPlan.arrivalId && f.flightPlan.arrivalId.toUpperCase() === airport;
+        } else {
+          return f.flightPlan.departureId && f.flightPlan.departureId.toUpperCase() === airport;
+        }
+      });
 
+      // Create rows
       const rows = flights.slice(0, 20).map(f => {
-        const route = mode === 'arrivals' ? f.dep : f.arr;
-        const timeUnix = mode === 'arrivals' ? f.arrtime : f.deptime;
-        const timeStr = timeUnix && timeUnix > 0 ? new Date(timeUnix * 1000).toISOString().substr(11, 5) : 'N/A';
-        return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
+        const route = mode === 'arrivals' ? f.flightPlan.departureId : f.flightPlan.arrivalId;
+        const timeSeconds = mode === 'arrivals' ? f.flightPlan.arrivalTime : f.flightPlan.departureTime;
+        const timeStr = secondsToTime(timeSeconds);
+
+        return `<tr><td>${f.callsign}</td><td>${route || 'N/A'}</td><td>${timeStr}</td></tr>`;
       }).join('');
 
       document.getElementById('flights').innerHTML = rows || '<tr><td colspan="3">No flights</td></tr>';
@@ -75,6 +92,11 @@
       console.error('Flight fetch error:', e);
       document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error loading flights</td></tr>';
     }
+  }
+
+  function toggleMode() {
+    mode = (mode === 'arrivals') ? 'departures' : 'arrivals';
+    document.getElementById('mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
   }
 
   async function update() {
@@ -86,21 +108,11 @@
     }
   }
 
-  function toggleMode() {
-    mode = (mode === 'arrivals') ? 'departures' : 'arrivals';
-    document.getElementById('mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
-  }
-
-  async function cycle() {
-    toggleMode();
-    await update();
-  }
-
-  // Initial load
   update();
-
-  // Toggle mode and update every 10 seconds
-  setInterval(cycle, 10000);
+  setInterval(() => {
+    toggleMode();
+    update();
+  }, 10000); // toggle mode and update every 10 seconds
 </script>
 </body>
 </html>
