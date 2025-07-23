@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <title>IVAO Flight Board – EGLL</title>
   <style>
-    body { font-family: Arial, sans-serif; background: black; color: white; }
+    body { font-family: Arial, sans-serif; }
     h1 { text-align: center; }
-    table { width: 90%; margin: 0 auto; border-collapse: collapse; color: white; }
-    th, td { padding: 8px; border: 1px solid #444; text-align: center; }
+    table { width: 90%; margin: 0 auto; border-collapse: collapse; }
+    th, td { padding: 8px; border: 1px solid #ddd; text-align: center; }
   </style>
 </head>
 <body>
@@ -23,11 +23,8 @@
   const airport = 'EGLL';
   let mode = 'arrivals';
 
-  // CHANGE THIS TO YOUR RENDER DEPLOYED URL
-  const tokenUrl = 'https://ivao-token-server.onrender.com';
-
   async function getToken() {
-    const res = await fetch(tokenUrl);
+    const res = await fetch('https://ivao-token-server.onrender.com'); // replace with your deployed token server URL
     if (!res.ok) throw new Error('Failed to get token');
     const data = await res.json();
     return data.token;
@@ -35,4 +32,49 @@
 
   async function fetchFlights(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
-    const res = await
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
+    if (!res.ok) throw new Error('Failed to fetch flights');
+    const data = await res.json();
+
+    const flights = data.instances.filter(f => {
+      return mode === 'arrivals' ? f.arricao === airport : f.depicao === airport;
+    });
+
+    const rows = flights.slice(0, 20).map(f => {
+      const route = mode === 'arrivals' ? f.depicao : f.arricao;
+      const time = mode === 'arrivals' ? f.arrivaltime : f.departuretime;
+      const timeStr = time ? new Date(time * 1000).toISOString().substr(11,5) : 'N/A';
+      return `<tr><td>${f.callsign}</td><td>${route}</td><td>${timeStr}</td></tr>`;
+    }).join('');
+
+    document.getElementById('flights').innerHTML = rows || '<tr><td colspan="3">No flights</td></tr>';
+  }
+
+  function toggleMode() {
+    mode = mode === 'arrivals' ? 'departures' : 'arrivals';
+    document.getElementById('mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+  }
+
+  async function update() {
+    try {
+      const token = await getToken();
+      await fetchFlights(token);
+    } catch (e) {
+      console.error(e);
+      document.getElementById('flights').innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+    }
+  }
+
+  update();
+  setInterval(update, 5000);      // Refresh every 5 seconds
+  setInterval(() => {
+    toggleMode();
+    update();
+  }, 5000);                     // Switch arrivals/departures every 15 seconds
+</script>
+</body>
+</html>
