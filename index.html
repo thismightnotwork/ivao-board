@@ -102,7 +102,7 @@
   }
 
   function secondsToTime(sec) {
-    if (sec === null || sec === undefined) return 'N/A';
+    if (sec === null || sec === undefined || sec < 0) return 'N/A';
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
@@ -140,15 +140,21 @@
       });
 
       filtered.sort((a, b) => {
-        const timeA = mode === 'arrivals' ? a.flightPlan.arrivalTime : a.flightPlan.departureTime;
-        const timeB = mode === 'arrivals' ? b.flightPlan.arrivalTime : b.flightPlan.departureTime;
-        return (timeA || 0) - (timeB || 0);
+        let timeA, timeB;
+        if (mode === 'arrivals') {
+          // Sort by ETA seconds for arrivals
+          timeA = getEtaSeconds(a);
+          timeB = getEtaSeconds(b);
+        } else {
+          timeA = a.flightPlan.departureTime || 0;
+          timeB = b.flightPlan.departureTime || 0;
+        }
+        return (timeA || 99999) - (timeB || 99999);
       });
 
       const rows = filtered.slice(0, 20).map(f => {
         const arrivalAirport = f.flightPlan.arrivalId || 'N/A';
-        const estTimeSec = mode === 'arrivals' ? f.flightPlan.arrivalTime : f.flightPlan.departureTime;
-        const estTime = secondsToTime(estTimeSec);
+        const estTime = mode === 'arrivals' ? getEtaFormatted(f) : secondsToTime(f.flightPlan.departureTime);
         const aircraftType = f.flightPlan.aircraftId || 'N/A';
 
         return `
@@ -165,6 +171,18 @@
       console.error('Flight fetch error:', e);
       document.getElementById('flights').innerHTML = '<tr><td colspan="4">Error loading flights</td></tr>';
     }
+  }
+
+  function getEtaSeconds(pilot) {
+    const lastTrack = pilot.lastTrack;
+    if (!lastTrack || lastTrack.arrivalDistance === undefined || lastTrack.groundSpeed <= 0) {
+      return null;
+    }
+    return Math.round((lastTrack.arrivalDistance / lastTrack.groundSpeed) * 3600); // seconds
+  }
+
+  function getEtaFormatted(pilot) {
+    return secondsToTime(getEtaSeconds(pilot));
   }
 
   function toggleMode() {
