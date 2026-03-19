@@ -202,8 +202,8 @@
           <tr>
             <th>Airline</th>
             <th>Time</th>
-            <th>From</th>
             <th>Flight</th>
+            <th>From</th>
             <th>Status</th>
             <th>Gate</th>
           </tr>
@@ -222,8 +222,8 @@
           <tr>
             <th>Airline</th>
             <th>Time</th>
-            <th>To</th>
             <th>Flight</th>
+            <th>To</th>
             <th>Status</th>
             <th>Gate</th>
           </tr>
@@ -295,12 +295,10 @@
               onerror="this.style.display='none';" />`;
   }
 
-  // simple "on ground" check
   function isOnGround(f) {
     return !!(f.lastTrack && f.lastTrack.onGround);
   }
 
-  // fake gate from last 2 digits of flight number so column looks populated
   function getGateFromCallsign(callsign) {
     if (!callsign) return '';
     const digits = callsign.match(/\d+/g);
@@ -347,7 +345,6 @@
     const nowSec = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60;
     const diff = sec - nowSec;
 
-    // Time column must always show SCHEDULED departure time
     const schedTime = secondsToTime(sec);
     let status = '';
     let statusClass = 'status-scheduled';
@@ -434,14 +431,12 @@
              f.flightPlan.departureId.toUpperCase() === airport;
     });
 
-    // sort arrivals by ETA seconds
     arrivals.sort((a, b) => {
       const timeA = getEtaSeconds(a) || 999999;
       const timeB = getEtaSeconds(b) || 999999;
       return timeA - timeB;
     });
 
-    // sort departures by scheduled dep time
     departures.sort((a, b) => {
       const timeA = a.flightPlan.departureTime || 999999;
       const timeB = b.flightPlan.departureTime || 999999;
@@ -450,7 +445,7 @@
 
     const arrivalRows = (arrivals.slice(0, 20).map(f => {
       const fromAirport = f.flightPlan.departureId || 'N/A';
-      const etaClock = getEtaClockTime(f);       // EST ARRIVAL TIME (UTC)
+      const etaClock = getEtaClockTime(f);  // EST ARRIVAL UTC
       const { status, statusClass, gateText } = arrStatusAndGateText(f);
       const logo = getLogoImg(f.callsign);
       const gate = gateText || getGateFromCallsign(f.callsign);
@@ -459,15 +454,14 @@
         <tr>
           <td class="airline-cell">${logo}</td>
           <td class="time-cell">${etaClock}</td>
-          <td>${fromAirport}</td>
           <td class="callsign-cell">${f.callsign}</td>
+          <td>${fromAirport}</td>
           <td class="status-cell ${statusClass}">${status}</td>
           <td>${gate || ''}</td>
         </tr>
       `;
     }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
 
-    // build departures with removal of flights >10min after actual dep
     const depRowsArray = [];
 
     departures.forEach(f => {
@@ -485,8 +479,8 @@
         <tr>
           <td class="airline-cell">${logo}</td>
           <td class="time-cell">${info.displayTime}</td>
-          <td>${toAirport}</td>
           <td class="callsign-cell">${f.callsign}</td>
+          <td>${toAirport}</td>
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
