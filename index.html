@@ -4,8 +4,25 @@
   <meta charset="utf-8" />
   <title>IVAO Flight Board</title>
   <style>
+    /* Self‑hosted Istok Web */
+    @font-face {
+      font-family: 'Istok Web';
+      src: url('fonts/IstokWeb-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Istok Web';
+      src: url('fonts/IstokWeb-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Istok Web', sans-serif;
       background: #000;
       color: #fff;
       margin: 0;
@@ -48,6 +65,7 @@
       border: 1px solid #666;
       outline: none;
       color: #000;
+      font-family: 'Istok Web', sans-serif;
     }
 
     #updateBtn {
@@ -59,6 +77,7 @@
       cursor: pointer;
       background: #333;
       color: #fff;
+      font-family: 'Istok Web', sans-serif;
     }
 
     #updateBtn:hover {
@@ -88,6 +107,7 @@
       text-transform: uppercase;
       border-bottom: 2px solid #ffd800;
       text-align: left;
+      font-family: 'Istok Web', sans-serif;
     }
 
     table {
@@ -96,6 +116,7 @@
       background: #000;
       color: #fff;
       table-layout: fixed;
+      font-family: 'Istok Web', sans-serif;
     }
 
     th, td {
@@ -111,7 +132,7 @@
 
     th {
       background-color: #111;
-      font-weight: normal;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: #ccc;
@@ -122,13 +143,13 @@
     }
 
     .time-cell {
-      font-family: "Courier New", monospace;
+      font-family: 'Istok Web', sans-serif;
     }
 
     .callsign-cell {
-      font-family: "Courier New", monospace;
-      font-weight: bold;
-      color: #fdcd01; /* flight callsign colour */
+      font-family: 'Istok Web', sans-serif;
+      font-weight: 700;
+      color: #fdcd01;
     }
 
     /* airline column: taller cell, logo fills the block */
@@ -157,7 +178,7 @@
 
     .status-cell {
       text-transform: uppercase;
-      font-weight: bold;
+      font-weight: 700;
     }
     .status-scheduled { color: #ffffff; }
     .status-gate-open { color: #6cf86c; }
@@ -173,13 +194,14 @@
     #arrivalsBody tr td:last-child,
     #departuresBody tr td:last-child {
       color: #f6ee82;
-      font-weight: bold;
+      font-weight: 700;
     }
 
     .meta {
       margin-top: 6px;
       font-size: 11px;
       color: #aaa;
+      font-family: 'Istok Web', sans-serif;
     }
 
     @media (max-width: 900px) {
@@ -492,7 +514,7 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `);
+      `;
     });
 
     const departureRows = depRowsArray.slice(0, 20).join('') ||
