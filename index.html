@@ -130,6 +130,14 @@
       font-weight: bold;
     }
 
+    /* airline column: taller cell, logo fills the block */
+    #arrivalsBody tr td:first-child,
+    #departuresBody tr td:first-child {
+      height: 42px;          /* overall block height */
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
     .airline-cell {
       display: flex;
       align-items: center;
@@ -138,10 +146,12 @@
     }
 
     .airline-logo {
-      width: 26px;
-      height: 26px;
+      height: 32px;          /* a bit smaller than 42px cell */
+      width: auto;
+      max-width: 90%;
       object-fit: contain;
-      background: #111;
+      display: block;
+      background: transparent;
     }
 
     .status-cell {
@@ -268,7 +278,6 @@
     return callsign.substring(0, 3).toUpperCase();
   }
 
-  // *** FIXED PATH HERE ***
   function getLogoImg(callsign) {
     const icao = getAirlineCode(callsign);
     if (!icao) return '';
@@ -349,7 +358,6 @@
       };
     }
 
-    // far out: “Gate info at 15:50”
     const infoTimeSec = sec - 1800; // 30 min before scheduled
     const infoStr = secondsToTime(infoTimeSec);
     return {
@@ -406,7 +414,7 @@
 
     const arrivalRows = (arrivals.slice(0, 20).map(f => {
       const fromAirport = f.flightPlan.departureId || 'N/A';
-      const sched = getEtaFormatted(f);        // ETA as board time
+      const sched = getEtaFormatted(f);
       const { status, statusClass, gateText } = arrStatusAndGateText(f);
       const logo = getLogoImg(f.callsign);
       const gate = gateText || getGateFromCallsign(f.callsign);
