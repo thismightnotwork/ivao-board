@@ -3,16 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <title>IVAO Flight Board</title>
-
-  <!-- Google Font: Istok Web -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Istok+Web:wght@400;700&display=swap" rel="stylesheet">
-
   <style>
     body {
-      font-family: 'Istok Web', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', sans-serif;
+      font-family: Arial, sans-serif;
       background: #000;
       color: #fff;
       margin: 0;
@@ -55,8 +48,6 @@
       border: 1px solid #666;
       outline: none;
       color: #000;
-      font-family: 'Istok Web', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', sans-serif;
     }
 
     #updateBtn {
@@ -68,8 +59,6 @@
       cursor: pointer;
       background: #333;
       color: #fff;
-      font-family: 'Istok Web', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', sans-serif;
     }
 
     #updateBtn:hover {
@@ -107,8 +96,6 @@
       background: #000;
       color: #fff;
       table-layout: fixed;
-      font-family: 'Istok Web', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', sans-serif;
     }
 
     th, td {
@@ -124,7 +111,7 @@
 
     th {
       background-color: #111;
-      font-weight: 700;
+      font-weight: normal;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: #ccc;
@@ -135,15 +122,13 @@
     }
 
     .time-cell {
-      font-family: 'Istok Web', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', sans-serif;
+      font-family: "Courier New", monospace;
     }
 
     .callsign-cell {
-      font-family: 'Istok Web', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', sans-serif;
-      font-weight: 700;
-      color: #fdcd01;
+      font-family: "Courier New", monospace;
+      font-weight: bold;
+      color: #fdcd01; /* flight callsign colour */
     }
 
     /* airline column: taller cell, logo fills the block */
@@ -324,7 +309,7 @@
 
   function getGateFromCallsign(callsign) {
     if (!callsign) return '';
-    const digits = callsign.match(/\d+/g);   // fixed single backslash
+    const digits = callsign.match(/\d+/g);
     if (!digits) return '';
     const d = digits.join('');
     const n = parseInt(d.slice(-2), 10);
@@ -507,7 +492,7 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `;
+      `);
     });
 
     const departureRows = depRowsArray.slice(0, 20).join('') ||
