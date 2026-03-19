@@ -37,6 +37,37 @@
   <div id="result" class="result"></div>
 
   <script>
+    // ICAO → IANA timezone mapping (you can expand this)
+    const icaoToTz = {
+      "EGLL": "Europe/London",
+      "EGKK": "Europe/London",
+      "EGCC": "Europe/London",
+      "EGLC": "Europe/London",
+      "EGNX": "Europe/London",
+      "EGBB": "Europe/London",
+      "EGPH": "Europe/London",
+      "EGPF": "Europe/London",
+      "EDDM": "Europe/Berlin",
+      "EDDF": "Europe/Berlin",
+      "EDDH": "Europe/Berlin",
+      "EDDT": "Europe/Berlin",
+      "KJFK": "America/New_York",
+      "KLAX": "America/Los_Angeles",
+      "KORD": "America/Chicago",
+      "KSFO": "America/Los_Angeles",
+      "LFPG": "Europe/Paris",
+      "LFBO": "Europe/Paris",
+      "LSGG": "Europe/Zurich",
+      "LIMC": "Europe/Rome",
+      "LPPT": "Europe/Lisbon",
+      "EHAM": "Europe/Amsterdam",
+      "LOWI": "Europe/Vienna"
+    };
+
+    // Use a CORS‑enabled, no‑key time API (time.now)
+    // Docs: https://time.now/developer
+    const TIME_NOW_API = "https://time.now/developer/api/timezone/";
+
     let tz = "UTC";
     let clockInterval = null;
 
@@ -46,30 +77,29 @@
 
       document.getElementById("result").innerHTML = "Loading…";
 
-      // Clear any old interval
       if (clockInterval) clearInterval(clockInterval);
 
+      tz = icaoToTz[icao] || "UTC"; // fallback to UTC if unknown
+
+      // If you want to validate/fetch from free time.now later, tweak this
+      // For now, just render using tz immediately
+      renderClock();
+    }
+
+    // Use time.now API to get real‑time local time (with seconds)
+    async function fetchLocalTime(tz) {
       try {
-        const res = await fetch(`https://airportsapi.com/v1/airports?iata=false&icao=${icao}`);
+        const res = await fetch(TIME_NOW_API + encodeURIComponent(tz));
         const data = await res.json();
-
-        if (!data.airports || data.airports.length === 0) {
-          tz = "UTC";
-          document.getElementById("result").innerHTML = `<b>Unknown ICAO: ${icao}</b><br>Using UTC.`;
-          renderClock();
-          return;
+        if (data.datetime) {
+          // Parse ISO datetime to local‑formatted string
+          const dt = new Date(data.datetime);
+          return dt.toISOString().slice(0, 19).replace("T", " ");
         }
-
-        const tzname = data.airports[0].timezone;
-        if (!tzname) throw new Error("No timezone");
-
-        tz = tzname;
-        renderClock();
       } catch (err) {
-        tz = "UTC";
-        document.getElementById("result").innerHTML = `<b>Error loading timezone: ${err.message}</b>`;
-        renderClock();
+        console.warn("Using fallback for", tz);
       }
+      return null;
     }
 
     function formatTime(date, timeZone) {
@@ -97,14 +127,19 @@
       const nowLocal = new Date();
       const nowUtc = new Date(nowLocal.getTime() + nowLocal.getTimezoneOffset() * 60000);
 
+      const icao = document.getElementById("icao").value.trim().toUpperCase();
+      const labelTz = tz !== "UTC" ? tz.split("/").pop().replace(/_/g, " ") : "UTC";
+
+      const loc = tz === "UTC"
+        ? formatTime(nowUtc, "UTC")
+        : formatTime(nowLocal, tz);
       const utc = formatTime(nowUtc, "UTC");
-      const loc = tz === "UTC" ? utc : formatTime(nowLocal, tz);
       const offset = tz === "UTC" ? "UTC+0" : formatUtcOffset(nowLocal, tz);
 
       document.getElementById("result").innerHTML = `
         <div><b>Local:</b> ${loc}</div>
         <div><b>UTC:</b> ${utc}</div>
-        <div class="small">Offset: ${offset}</div>
+        <div class="small">${icao} · ${labelTz} · ${offset}</div>
       `;
 
       clockInterval = setInterval(renderClock, 1000);
