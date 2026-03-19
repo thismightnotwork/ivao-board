@@ -84,6 +84,27 @@
       background: #555;
     }
 
+    /* Simple inline network toggle, no colour theme */
+    #networkToggle {
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #ccc;
+    }
+    #networkToggle button {
+      padding: 2px 8px;
+      margin-right: 4px;
+      font-size: 13px;
+      font-family: 'Istok Web', sans-serif;
+      border-radius: 3px;
+      border: 1px solid #666;
+      background: #222;
+      color: #ccc;
+      cursor: pointer;
+    }
+    #networkToggle button:hover {
+      background: #444;
+    }
+
     .board-container {
       display: flex;
       flex-direction: row;
@@ -212,6 +233,14 @@
   </style>
 </head>
 <body>
+
+  <!-- Network toggle (IVAO / VATSIM) -->
+  <div id="networkToggle">
+    Network:
+    <button id="btnIvao" type="button">IVAO</button>
+    <button id="btnVatsim" type="button">VATSIM</button>
+  </div>
+
   <h1>
     <span class="icon">✈</span>
     <span id="airportTitle">EGKK</span> flights
@@ -269,13 +298,19 @@
 
 <script>
   let airport = 'EGKK';
+  let network = 'ivao'; // 'ivao' or 'vatsim'
 
-  const airportTitle = document.getElementById('airportTitle');
-  const airportInput = document.getElementById('airportInput');
-  const updateBtn = document.getElementById('updateBtn');
-  const arrivalsBody = document.getElementById('arrivalsBody');
+  const airportTitle   = document.getElementById('airportTitle');
+  const airportInput   = document.getElementById('airportInput');
+  const updateBtn      = document.getElementById('updateBtn');
+  const arrivalsBody   = document.getElementById('arrivalsBody');
   const departuresBody = document.getElementById('departuresBody');
-  const meta = document.getElementById('meta');
+  const meta           = document.getElementById('meta');
+  const btnIvao        = document.getElementById('btnIvao');
+  const btnVatsim      = document.getElementById('btnVatsim');
+
+  btnIvao.addEventListener('click', () => { network = 'ivao'; update(); });
+  btnVatsim.addEventListener('click', () => { network = 'vatsim'; update(); });
 
   async function getToken() {
     const res = await fetch('https://ivao-token-server.onrender.com/token');
@@ -331,7 +366,7 @@
 
   function getGateFromCallsign(callsign) {
     if (!callsign) return '';
-    const digits = callsign.match(/\d+/g);  // fixed single backslash
+    const digits = callsign.match(/\d+/g);
     if (!digits) return '';
     const d = digits.join('');
     const n = parseInt(d.slice(-2), 10);
@@ -428,7 +463,9 @@
     return { status, statusClass, gateText, displayTime: schedTime };
   }
 
-  async function fetchFlights(token) {
+  // ---------- IVAO ----------
+
+  async function fetchIvao(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
     const res = await fetch(url, {
       headers: {
@@ -492,76 +529,189 @@
       `;
     }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
 
-  const depRowsArray = [];
+    const depRowsArray = [];
 
-  departures.forEach(f => {
-    const toAirport = f.flightPlan.arrivalId || 'N/A';
-    const schedSec = f.flightPlan.departureTime;
-    const onGround = isOnGround(f);
-    const info = depStatusAndGateText(schedSec, f.callsign, onGround);
+    departures.forEach(f => {
+      const toAirport = f.flightPlan.arrivalId || 'N/A';
+      const schedSec = f.flightPlan.departureTime;
+      const onGround = isOnGround(f);
+      const info = depStatusAndGateText(schedSec, f.callsign, onGround);
 
-    if (info.status === 'HIDE') return;
+      if (info.status === 'HIDE') return;
 
-    const logo = getLogoImg(f.callsign);
-    const gate = info.gateText || getGateFromCallsign(f.callsign);
+      const logo = getLogoImg(f.callsign);
+      const gate = info.gateText || getGateFromCallsign(f.callsign);
 
-    depRowsArray.push(`
-      <tr>
-        <td class="airline-cell">${logo}</td>
-        <td class="time-cell">${info.displayTime}</td>
-        <td class="callsign-cell">${f.callsign}</td>
-        <td>${toAirport}</td>
-        <td class="status-cell ${info.statusClass}">${info.status}</td>
-        <td>${gate || ''}</td>
-      </tr>
-    `);
+      depRowsArray.push(`
+        <tr>
+          <td class="airline-cell">${logo}</td>
+          <td class="time-cell">${info.displayTime}</td>
+          <td class="callsign-cell">${f.callsign}</td>
+          <td>${toAirport}</td>
+          <td class="status-cell ${info.statusClass}">${info.status}</td>
+          <td>${gate || ''}</td>
+        </tr>
+      `);
+    });
+
+    const departureRows = depRowsArray.slice(0, 20).join('') ||
+      '<tr><td colspan="6">No departures</td></tr>';
+
+    arrivalsBody.innerHTML = arrivalRows;
+    departuresBody.innerHTML = departureRows;
+
+    const now = new Date();
+    meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (IVAO)`;
+  }
+
+  // ---------- VATSIM ----------
+
+  function vatsimDepSec(deptime) {
+    if (!deptime) return null;
+    const s = String(deptime).padStart(4, '0');
+    const hh = parseInt(s.slice(0, 2), 10);
+    const mm = parseInt(s.slice(2, 4), 10);
+    return hh * 3600 + mm * 60;
+  }
+
+  function vatsimEtaSec(f) {
+    if (!f.flight_plan || f.groundspeed < 10) return null;
+    if (f.altitude < 1500 && f.groundspeed > 50) return 300;
+    return null;
+  }
+
+  function vatsimEtaClock(f) {
+    const sec = vatsimEtaSec(f);
+    if (sec == null) return 'En route';
+    const d = new Date(Date.now() + sec * 1000);
+    const hh = d.getUTCHours().toString().padStart(2, '0');
+    const mm = d.getUTCMinutes().toString().padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+
+  function vatsimArrStatus(f) {
+    const onGround = f.groundspeed < 30;
+    const eta = vatsimEtaSec(f);
+    if (onGround)             return { status: 'Arrived',        statusClass: 'status-arrived',   gateText: getGateFromCallsign(f.callsign) };
+    if (eta != null && eta < 90)  return { status: 'Landing',        statusClass: 'status-final',     gateText: getGateFromCallsign(f.callsign) };
+    if (eta != null && eta < 180) return { status: 'Final approach', statusClass: 'status-final',     gateText: '' };
+    return { status: 'En route', statusClass: 'status-scheduled', gateText: '' };
+  }
+
+  async function fetchVatsim() {
+    const res = await fetch('https://data.vatsim.net/v3/vatsim-data.json');
+    if (!res.ok) {
+      throw new Error('VATSIM API error: ' + res.status);
+    }
+    const data = await res.json();
+    const pilots = data.pilots || [];
+
+    const arrivals = pilots
+      .filter(f => f.flight_plan && f.flight_plan.arrival && f.flight_plan.arrival.toUpperCase() === airport)
+      .sort((a, b) => (vatsimEtaSec(a) || 999999) - (vatsimEtaSec(b) || 999999));
+
+    const departures = pilots
+      .filter(f => f.flight_plan && f.flight_plan.departure && f.flight_plan.departure.toUpperCase() === airport)
+      .sort((a, b) => (vatsimDepSec(a.flight_plan.deptime) || 999999) - (vatsimDepSec(b.flight_plan.deptime) || 999999));
+
+    const arrivalRows = (arrivals.slice(0, 20).map(f => {
+      const fromAirport = f.flight_plan.departure || 'N/A';
+      const etaClock = vatsimEtaClock(f);
+      const { status, statusClass, gateText } = vatsimArrStatus(f);
+      const logo = getLogoImg(f.callsign);
+      const gate = gateText || getGateFromCallsign(f.callsign);
+
+      return `
+        <tr>
+          <td class="airline-cell">${logo}</td>
+          <td class="time-cell">${etaClock}</td>
+          <td class="callsign-cell">${f.callsign}</td>
+          <td>${fromAirport}</td>
+          <td class="status-cell ${statusClass}">${status}</td>
+          <td>${gate || ''}</td>
+        </tr>
+      `;
+    }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
+
+    const depRowsArray = [];
+
+    departures.forEach(f => {
+      const toAirport = f.flight_plan.arrival || 'N/A';
+      const schedSec = vatsimDepSec(f.flight_plan.deptime);
+      const onGround = f.groundspeed < 30;
+      const info = depStatusAndGateText(schedSec, f.callsign, onGround); // reuse IVAO dep logic
+
+      if (info.status === 'HIDE') return;
+
+      const logo = getLogoImg(f.callsign);
+      const gate = info.gateText || getGateFromCallsign(f.callsign);
+
+      depRowsArray.push(`
+        <tr>
+          <td class="airline-cell">${logo}</td>
+          <td class="time-cell">${info.displayTime}</td>
+          <td class="callsign-cell">${f.callsign}</td>
+          <td>${toAirport}</td>
+          <td class="status-cell ${info.statusClass}">${info.status}</td>
+          <td>${gate || ''}</td>
+        </tr>
+      `);
+    });
+
+    const departureRows = depRowsArray.slice(0, 20).join('') ||
+      '<tr><td colspan="6">No departures</td></tr>';
+
+    arrivalsBody.innerHTML = arrivalRows;
+    departuresBody.innerHTML = departureRows;
+
+    const now = new Date();
+    meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (VATSIM)`;
+  }
+
+  // ---------- Main update ----------
+
+  async function update() {
+    try {
+      meta.textContent = 'Updating...';
+      arrivalsBody.innerHTML   = '<tr><td colspan="6">Loading...</td></tr>';
+      departuresBody.innerHTML = '<tr><td colspan="6">Loading...</td></tr>';
+
+      if (network === 'ivao') {
+        const token = await getToken();
+        await fetchIvao(token);
+      } else {
+        await fetchVatsim();
+      }
+    } catch (e) {
+      console.error('Flight fetch error:', e);
+      arrivalsBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
+      departuresBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
+      meta.textContent = 'Error getting data';
+    }
+  }
+
+  function setAirport(newAirport) {
+    if (!newAirport || newAirport.length !== 4) {
+      alert('Please enter a valid 4-letter ICAO code');
+      return;
+    }
+    airport = newAirport.toUpperCase();
+    airportTitle.textContent = airport;
+    update();
+  }
+
+  updateBtn.addEventListener('click', () => {
+    setAirport(airportInput.value.trim());
   });
 
-  const departureRows = depRowsArray.slice(0, 20).join('') ||
-    '<tr><td colspan="6">No departures</td></tr>';
+  airportInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      setAirport(airportInput.value.trim());
+    }
+  });
 
-  arrivalsBody.innerHTML = arrivalRows;
-  departuresBody.innerHTML = departureRows;
-
-  const now = new Date();
-  meta.textContent = `Last update: ${now.toUTCString()} – ${airport}`;
-}
-
-async function update() {
-  try {
-    meta.textContent = 'Updating...';
-    const token = await getToken();
-    await fetchFlights(token);
-  } catch (e) {
-    console.error('Flight fetch error:', e);
-    arrivalsBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
-    departuresBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
-    meta.textContent = 'Error getting data';
-  }
-}
-
-function setAirport(newAirport) {
-  if (!newAirport || newAirport.length !== 4) {
-    alert('Please enter a valid 4-letter ICAO code');
-    return;
-  }
-  airport = newAirport.toUpperCase();
-  airportTitle.textContent = airport;
   update();
-}
-
-updateBtn.addEventListener('click', () => {
-  setAirport(airportInput.value.trim());
-});
-
-airportInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    setAirport(airportInput.value.trim());
-  }
-});
-
-update();
-setInterval(update, 15000);
+  setInterval(update, 15000);
 </script>
 </body>
 </html>
