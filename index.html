@@ -331,7 +331,7 @@
 
   function getGateFromCallsign(callsign) {
     if (!callsign) return '';
-    const digits = callsign.match(/\d+/g);
+    const digits = callsign.match(/\d+/g);  // fixed single backslash
     if (!digits) return '';
     const d = digits.join('');
     const n = parseInt(d.slice(-2), 10);
@@ -492,76 +492,76 @@
       `;
     }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
 
-    const depRowsArray = [];
+  const depRowsArray = [];
 
-    departures.forEach(f => {
-      const toAirport = f.flightPlan.arrivalId || 'N/A';
-      const schedSec = f.flightPlan.departureTime;
-      const onGround = isOnGround(f);
-      const info = depStatusAndGateText(schedSec, f.callsign, onGround);
+  departures.forEach(f => {
+    const toAirport = f.flightPlan.arrivalId || 'N/A';
+    const schedSec = f.flightPlan.departureTime;
+    const onGround = isOnGround(f);
+    const info = depStatusAndGateText(schedSec, f.callsign, onGround);
 
-      if (info.status === 'HIDE') return;
+    if (info.status === 'HIDE') return;
 
-      const logo = getLogoImg(f.callsign);
-      const gate = info.gateText || getGateFromCallsign(f.callsign);
+    const logo = getLogoImg(f.callsign);
+    const gate = info.gateText || getGateFromCallsign(f.callsign);
 
-      depRowsArray.push(`
-        <tr>
-          <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${info.displayTime}</td>
-          <td class="callsign-cell">${f.callsign}</td>
-          <td>${toAirport}</td>
-          <td class="status-cell ${info.statusClass}">${info.status}</td>
-          <td>${gate || ''}</td>
-        </tr>
-      `;
-    });
-
-    const departureRows = depRowsArray.slice(0, 20).join('') ||
-      '<tr><td colspan="6">No departures</td></tr>';
-
-    arrivalsBody.innerHTML = arrivalRows;
-    departuresBody.innerHTML = departureRows;
-
-    const now = new Date();
-    meta.textContent = `Last update: ${now.toUTCString()} – ${airport}`;
-  }
-
-  async function update() {
-    try {
-      meta.textContent = 'Updating...';
-      const token = await getToken();
-      await fetchFlights(token);
-    } catch (e) {
-      console.error('Flight fetch error:', e);
-      arrivalsBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
-      departuresBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
-      meta.textContent = 'Error getting data';
-    }
-  }
-
-  function setAirport(newAirport) {
-    if (!newAirport || newAirport.length !== 4) {
-      alert('Please enter a valid 4-letter ICAO code');
-      return;
-    }
-    airport = newAirport.toUpperCase();
-    airportTitle.textContent = airport;
-    update();
-  }
-
-  updateBtn.addEventListener('click', () => {
-    setAirport(airportInput.value.trim());
+    depRowsArray.push(`
+      <tr>
+        <td class="airline-cell">${logo}</td>
+        <td class="time-cell">${info.displayTime}</td>
+        <td class="callsign-cell">${f.callsign}</td>
+        <td>${toAirport}</td>
+        <td class="status-cell ${info.statusClass}">${info.status}</td>
+        <td>${gate || ''}</td>
+      </tr>
+    `);
   });
 
-  airportInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      setAirport(airportInput.value.trim());
-    }
-  });
+  const departureRows = depRowsArray.slice(0, 20).join('') ||
+    '<tr><td colspan="6">No departures</td></tr>';
 
+  arrivalsBody.innerHTML = arrivalRows;
+  departuresBody.innerHTML = departureRows;
+
+  const now = new Date();
+  meta.textContent = `Last update: ${now.toUTCString()} – ${airport}`;
+}
+
+async function update() {
+  try {
+    meta.textContent = 'Updating...';
+    const token = await getToken();
+    await fetchFlights(token);
+  } catch (e) {
+    console.error('Flight fetch error:', e);
+    arrivalsBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
+    departuresBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
+    meta.textContent = 'Error getting data';
+  }
+}
+
+function setAirport(newAirport) {
+  if (!newAirport || newAirport.length !== 4) {
+    alert('Please enter a valid 4-letter ICAO code');
+    return;
+  }
+  airport = newAirport.toUpperCase();
+  airportTitle.textContent = airport;
   update();
-  setInterval(update, 15000);
+}
+
+updateBtn.addEventListener('click', () => {
+  setAirport(airportInput.value.trim());
+});
+
+airportInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    setAirport(airportInput.value.trim());
+  }
+});
+
+update();
+setInterval(update, 15000);
 </script>
 </body>
 </html>
