@@ -324,7 +324,7 @@
 
   function getGateFromCallsign(callsign) {
     if (!callsign) return '';
-    const digits = callsign.match(/\d+/g);
+    const digits = callsign.match(/\d+/g);   // fixed single backslash
     if (!digits) return '';
     const d = digits.join('');
     const n = parseInt(d.slice(-2), 10);
