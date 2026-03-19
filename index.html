@@ -268,12 +268,13 @@
     return callsign.substring(0, 3).toUpperCase();
   }
 
+  // *** FIXED PATH HERE ***
   function getLogoImg(callsign) {
     const icao = getAirlineCode(callsign);
     if (!icao) return '';
-    const src = `/logos/${icao}.png`;   // e.g. /logos/EZY.png
+    const src = 'logos/' + icao + '.png';   // relative to ivao-board/index.html
     return `<img class="airline-logo" src="${src}" alt="${icao}"
-              onerror="this.style.visibility='hidden';" />`;
+              onerror="this.style.display='none';" />`;
   }
 
   // fake gate from last 2 digits of flight number so column looks populated
