@@ -133,7 +133,7 @@
     /* airline column: taller cell, logo fills the block */
     #arrivalsBody tr td:first-child,
     #departuresBody tr td:first-child {
-      height: 42px;          /* overall block height */
+      height: 42px;
       padding-top: 0;
       padding-bottom: 0;
     }
@@ -146,7 +146,7 @@
     }
 
     .airline-logo {
-      height: 32px;          /* a bit smaller than 42px cell */
+      height: 32px;
       width: auto;
       max-width: 90%;
       object-fit: contain;
@@ -165,7 +165,8 @@
     .status-closing { color: #ff9933; }
     .status-departed,
     .status-arrived,
-    .status-cancelled { color: #ff6666; }
+    .status-cancelled,
+    .status-delayed { color: #ff6666; }
 
     .meta {
       margin-top: 6px;
@@ -281,9 +282,14 @@
   function getLogoImg(callsign) {
     const icao = getAirlineCode(callsign);
     if (!icao) return '';
-    const src = 'logos/' + icao + '.png';   // relative to ivao-board/index.html
+    const src = 'logos/' + icao + '.png';
     return `<img class="airline-logo" src="${src}" alt="${icao}"
               onerror="this.style.display='none';" />`;
+  }
+
+  // simple "on ground" check
+  function isOnGround(f) {
+    return !!(f.lastTrack && f.lastTrack.onGround);
   }
 
   // fake gate from last 2 digits of flight number so column looks populated
@@ -294,7 +300,7 @@
     const d = digits.join('');
     const n = parseInt(d.slice(-2), 10);
     if (Number.isNaN(n)) return '';
-    if (n < 40) return (n + 10).toString(); // 10–49 etc
+    if (n < 40) return (n + 10).toString();
     return n.toString();
   }
 
@@ -324,46 +330,76 @@
     return { status: 'En route', statusClass: 'status-scheduled', gateText: '' };
   }
 
-  // DEPARTURE STATUS + wording (Gatwick-style)
-  function depStatusAndGateText(sec, callsign) {
+  // DEPARTURE STATUS + wording (with DELAYED + est time)
+  function depStatusAndGateText(sec, callsign, onGround) {
     if (!sec && sec !== 0) {
-      return { status: '', statusClass: 'status-scheduled', gateText: '' };
+      return { status: '', statusClass: 'status-scheduled', gateText: '', displayTime: 'N/A' };
     }
     const now = new Date();
     const nowSec = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60;
     const diff = sec - nowSec;
 
+    // base display time (may be updated for delay)
+    let displayTime = secondsToTime(sec);
+
+    // if still on ground well after sched, mark delayed and push est time +10 min
+    if (onGround && diff < 0) {
+      const delayMinutes = Math.ceil(Math.abs(diff) / 600) * 10; // steps of 10 min
+      const newEstSec = sec + delayMinutes * 60;
+      displayTime = secondsToTime(newEstSec);
+      return {
+        status: `Delayed ${displayTime}`,
+        statusClass: 'status-delayed',
+        gateText: getGateFromCallsign(callsign),
+        displayTime
+      };
+    }
+
+    // already gone: keep on board up to 10 minutes after sched, then drop
+    if (!onGround && diff < -600) {
+      return {
+        status: 'HIDE',          // special marker to filter out
+        statusClass: 'status-departed',
+        gateText: '',
+        displayTime
+      };
+    }
+
     if (diff < -90) {
-      return { status: 'Departed', statusClass: 'status-departed', gateText: '' };
+      return { status: 'Departed', statusClass: 'status-departed', gateText: '', displayTime };
     }
     if (diff < 0) {
       return {
         status: 'Gate closed',
         statusClass: 'status-closing',
-        gateText: getGateFromCallsign(callsign)
+        gateText: getGateFromCallsign(callsign),
+        displayTime
       };
     }
     if (diff < 900) {
       return {
         status: 'Boarding',
         statusClass: 'status-boarding',
-        gateText: getGateFromCallsign(callsign)
+        gateText: getGateFromCallsign(callsign),
+        displayTime
       };
     }
     if (diff < 1800) {
       return {
         status: 'Gate open',
         statusClass: 'status-gate-open',
-        gateText: getGateFromCallsign(callsign)
+        gateText: getGateFromCallsign(callsign),
+        displayTime
       };
     }
 
-    const infoTimeSec = sec - 1800; // 30 min before scheduled
+    const infoTimeSec = sec - 1800;
     const infoStr = secondsToTime(infoTimeSec);
     return {
       status: `Gate info at ${infoStr}`,
       statusClass: 'status-scheduled',
-      gateText: ''
+      gateText: '',
+      displayTime
     };
   }
 
@@ -394,7 +430,7 @@
              f.flightPlan.arrivalId.toUpperCase() === airport;
     });
 
-    const departures = pilots.filter(f => {
+    let departures = pilots.filter(f => {
       if (!f.flightPlan) return false;
       return f.flightPlan.departureId &&
              f.flightPlan.departureId.toUpperCase() === airport;
@@ -431,25 +467,35 @@
       `;
     }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
 
-    const departureRows = (departures.slice(0, 20).map(f => {
-      const toAirport = f.flightPlan.arrivalId || 'N/A';
-      const sched = secondsToTime(f.flightPlan.departureTime);
-      const { status, statusClass, gateText } =
-        depStatusAndGateText(f.flightPlan.departureTime, f.callsign);
-      const logo = getLogoImg(f.callsign);
-      const gate = gateText || getGateFromCallsign(f.callsign);
+    // build departures with removal of flights >10min after actual dep
+    const depRowsArray = [];
 
-      return `
+    departures.forEach(f => {
+      const toAirport = f.flightPlan.arrivalId || 'N/A';
+      const schedSec = f.flightPlan.departureTime;
+      const onGround = isOnGround(f);
+      const info = depStatusAndGateText(schedSec, f.callsign, onGround);
+
+      // if marked HIDE, skip this flight completely
+      if (info.status === 'HIDE') return;
+
+      const logo = getLogoImg(f.callsign);
+      const gate = info.gateText || getGateFromCallsign(f.callsign);
+
+      depRowsArray.push(`
         <tr>
           <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${sched}</td>
+          <td class="time-cell">${info.displayTime}</td>
           <td>${toAirport}</td>
           <td class="callsign-cell">${f.callsign}</td>
-          <td class="status-cell ${statusClass}">${status}</td>
+          <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `;
-    }).join('')) || '<tr><td colspan="6">No departures</td></tr>';
+      `);
+    });
+
+    const departureRows = depRowsArray.slice(0, 20).join('') ||
+      '<tr><td colspan="6">No departures</td></tr>';
 
     arrivalsBody.innerHTML = arrivalRows;
     departuresBody.innerHTML = departureRows;
