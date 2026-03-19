@@ -2,7 +2,6 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IVAO Flight Board</title>
   <style>
     /* Self‑hosted Istok Web */
@@ -85,7 +84,7 @@
       background: #555;
     }
 
-    /* Simple inline network toggle */
+    /* Simple inline network toggle, no colour theme */
     #networkToggle {
       margin-bottom: 6px;
       font-size: 14px;
@@ -301,12 +300,6 @@
   let airport = 'EGKK';
   let network = 'ivao'; // 'ivao' or 'vatsim'
 
-  const ROWS_PER_PAGE = 8;
-  let arrivalsRowsCache = [];
-  let departuresRowsCache = [];
-  let currentPageIndex = 0;   // shared for both sides
-  let pagingTimer = null;
-
   const airportTitle   = document.getElementById('airportTitle');
   const airportInput   = document.getElementById('airportInput');
   const updateBtn      = document.getElementById('updateBtn');
@@ -470,48 +463,6 @@
     return { status, statusClass, gateText, displayTime: schedTime };
   }
 
-  // ---------- Paging helpers (shared page index) ----------
-
-  function renderArrivalsPage(pageIndex) {
-    if (!arrivalsRowsCache || arrivalsRowsCache.length === 0) {
-      arrivalsBody.innerHTML = '<tr><td colspan="6">No arrivals</td></tr>';
-      return;
-    }
-    const start = pageIndex * ROWS_PER_PAGE;
-    const rows = arrivalsRowsCache.slice(start, start + ROWS_PER_PAGE).join('');
-    arrivalsBody.innerHTML = rows || '<tr><td colspan="6">No arrivals</td></tr>';
-  }
-
-  function renderDeparturesPage(pageIndex) {
-    if (!departuresRowsCache || departuresRowsCache.length === 0) {
-      departuresBody.innerHTML = '<tr><td colspan="6">No departures</td></tr>';
-      return;
-    }
-    const start = pageIndex * ROWS_PER_PAGE;
-    const rows = departuresRowsCache.slice(start, start + ROWS_PER_PAGE).join('');
-    departuresBody.innerHTML = rows || '<tr><td colspan="6">No departures</td></tr>';
-  }
-
-  function restartPagingTimer() {
-    if (pagingTimer) clearInterval(pagingTimer);
-    pagingTimer = setInterval(() => {
-      const maxArrPages = Math.max(1, Math.ceil(arrivalsRowsCache.length / ROWS_PER_PAGE));
-      const maxDepPages = Math.max(1, Math.ceil(departuresRowsCache.length / ROWS_PER_PAGE));
-      const maxPages = Math.max(maxArrPages, maxDepPages);
-
-      currentPageIndex = (currentPageIndex + 1) % maxPages;
-
-      renderArrivalsPage(currentPageIndex);
-      renderDeparturesPage(currentPageIndex);
-    }, 10000); // 10 seconds
-  }
-
-  function renderCurrentPage() {
-    renderArrivalsPage(currentPageIndex);
-    renderDeparturesPage(currentPageIndex);
-    restartPagingTimer();
-  }
-
   // ---------- IVAO ----------
 
   async function fetchIvao(token) {
@@ -559,7 +510,7 @@
       return timeA - timeB;
     });
 
-    arrivalsRowsCache = arrivals.map(f => {
+    const arrivalRows = (arrivals.slice(0, 20).map(f => {
       const fromAirport = f.flightPlan.departureId || 'N/A';
       const etaClock = getEtaClockTime(f);  // EST ARRIVAL UTC
       const { status, statusClass, gateText } = arrStatusAndGateText(f);
@@ -576,9 +527,10 @@
           <td>${gate || ''}</td>
         </tr>
       `;
-    });
+    }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
 
     const depRowsArray = [];
+
     departures.forEach(f => {
       const toAirport = f.flightPlan.arrivalId || 'N/A';
       const schedSec = f.flightPlan.departureTime;
@@ -599,12 +551,14 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `;
+      `);
     });
 
-    departuresRowsCache = depRowsArray;
-    currentPageIndex = 0;
-    renderCurrentPage();
+    const departureRows = depRowsArray.slice(0, 20).join('') ||
+      '<tr><td colspan="6">No departures</td></tr>';
+
+    arrivalsBody.innerHTML = arrivalRows;
+    departuresBody.innerHTML = departureRows;
 
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (IVAO)`;
@@ -660,7 +614,7 @@
       .filter(f => f.flight_plan && f.flight_plan.departure && f.flight_plan.departure.toUpperCase() === airport)
       .sort((a, b) => (vatsimDepSec(a.flight_plan.deptime) || 999999) - (vatsimDepSec(b.flight_plan.deptime) || 999999));
 
-    arrivalsRowsCache = arrivals.map(f => {
+    const arrivalRows = (arrivals.slice(0, 20).map(f => {
       const fromAirport = f.flight_plan.departure || 'N/A';
       const etaClock = vatsimEtaClock(f);
       const { status, statusClass, gateText } = vatsimArrStatus(f);
@@ -677,14 +631,16 @@
           <td>${gate || ''}</td>
         </tr>
       `;
-    });
+    }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
 
     const depRowsArray = [];
+
     departures.forEach(f => {
       const toAirport = f.flight_plan.arrival || 'N/A';
       const schedSec = vatsimDepSec(f.flight_plan.deptime);
       const onGround = f.groundspeed < 30;
-      const info = depStatusAndGateText(schedSec, f.callsign, onGround);
+      const info = depStatusAndGateText(schedSec, f.callsign, onGround); // reuse IVAO dep logic
+
       if (info.status === 'HIDE') return;
 
       const logo = getLogoImg(f.callsign);
@@ -699,12 +655,14 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `;
+      `);
     });
 
-    departuresRowsCache = depRowsArray;
-    currentPageIndex = 0;
-    renderCurrentPage();
+    const departureRows = depRowsArray.slice(0, 20).join('') ||
+      '<tr><td colspan="6">No departures</td></tr>';
+
+    arrivalsBody.innerHTML = arrivalRows;
+    departuresBody.innerHTML = departureRows;
 
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (VATSIM)`;
