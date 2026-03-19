@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live ICAO Time (OBS)</title>
+  <style>
+    body {
+      font-family: monospace;
+      margin: 0.5rem;
+      background-color: black;
+      color: white;
+    }
+    label, input, button {
+      display: block;
+      margin: 0.2rem 0;
+    }
+    input, button {
+      background-color: #111;
+      color: white;
+      border: 1px solid #555;
+      padding: 0.4rem;
+    }
+    button {
+      margin-top: 0.5rem;
+    }
+    .result {
+      margin-top: 0.8rem;
+      font-size: 1.3rem;
+    }
+  </style>
+</head>
+<body>
+  <label for="icao">ICAO:</label>
+  <input type="text" id="icao" placeholder="EGLL" />
+  <button onclick="setIcao()">Set airport</button>
+
+  <div id="result" class="result"></div>
+
+  <script>
+    let tz = "UTC";
+    let clockInterval = null;
+
+    async function setIcao() {
+      const icao = document.getElementById("icao").value.trim().toUpperCase();
+      if (!icao) return alert("Please enter an ICAO code (e.g. EGLL).");
+
+      document.getElementById("result").innerHTML = "Loading…";
+
+      // Clear any old interval
+      if (clockInterval) clearInterval(clockInterval);
+
+      try {
+        const res = await fetch(`https://airportsapi.com/v1/airports?iata=false&icao=${icao}`);
+        const data = await res.json();
+
+        if (!data.airports || data.airports.length === 0) {
+          tz = "UTC";
+          document.getElementById("result").innerHTML = `<b>Unknown ICAO: ${icao}</b><br>Using UTC.`;
+          renderClock();
+          return;
+        }
+
+        const tzname = data.airports[0].timezone;
+        if (!tzname) throw new Error("No timezone");
+
+        tz = tzname;
+        renderClock();
+      } catch (err) {
+        tz = "UTC";
+        document.getElementById("result").innerHTML = `<b>Error loading timezone: ${err.message}</b>`;
+        renderClock();
+      }
+    }
+
+    function formatTime(date, timeZone) {
+      return new Intl.DateTimeFormat("en-GB", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).format(date);
+    }
+
+    function formatUtcOffset(date, timeZone) {
+      const str = new Intl.DateTimeFormat("en-GB", {
+        timeZone,
+        timeZoneName: "shortOffset"
+      }).formatRange(date, date);
+      return str.replace(/^.*\s/, "");
+    }
+
+    function renderClock() {
+      const nowLocal = new Date();
+      const nowUtc = new Date(nowLocal.getTime() + nowLocal.getTimezoneOffset() * 60000);
+
+      const utc = formatTime(nowUtc, "UTC");
+      const loc = tz === "UTC" ? utc : formatTime(nowLocal, tz);
+      const offset = tz === "UTC" ? "UTC+0" : formatUtcOffset(nowLocal, tz);
+
+      document.getElementById("result").innerHTML = `
+        <div><b>Local:</b> ${loc}</div>
+        <div><b>UTC:</b> ${utc}</div>
+        <div class="small">Offset: ${offset}</div>
+      `;
+
+      clockInterval = setInterval(renderClock, 1000);
+    }
+  </script>
+</body>
+</html>
