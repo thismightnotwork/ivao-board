@@ -304,21 +304,21 @@
     if (eta == null) {
       return { status: 'En route', statusClass: 'status-scheduled', gateText: '' };
     }
-    if (eta < 300) {
+    if (eta < 30) {
       return {
         status: 'Arrived',
         statusClass: 'status-arrived',
         gateText: getGateFromCallsign(pilot.callsign)
       };
     }
-    if (eta < 900) {
+    if (eta < 90) {
       return {
         status: 'Landing',
         statusClass: 'status-final',
         gateText: getGateFromCallsign(pilot.callsign)
       };
     }
-    if (eta < 1800) {
+    if (eta < 180) {
       return { status: 'Final approach', statusClass: 'status-final', gateText: '' };
     }
     return { status: 'En route', statusClass: 'status-scheduled', gateText: '' };
@@ -333,7 +333,7 @@
     const nowSec = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60;
     const diff = sec - nowSec;
 
-    if (diff < -900) {
+    if (diff < -90) {
       return { status: 'Departed', statusClass: 'status-departed', gateText: '' };
     }
     if (diff < 0) {
