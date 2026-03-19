@@ -262,6 +262,7 @@
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
 
+  // ETA in seconds FROM NOW (used for ordering/status)
   function getEtaSeconds(pilot) {
     const lastTrack = pilot.lastTrack;
     if (!lastTrack || lastTrack.arrivalDistance === undefined || lastTrack.groundSpeed <= 0) {
@@ -270,8 +271,15 @@
     return Math.round((lastTrack.arrivalDistance / lastTrack.groundSpeed) * 3600);
   }
 
-  function getEtaFormatted(pilot) {
-    return secondsToTime(getEtaSeconds(pilot));
+  // Estimated arrival CLOCK time in UTC, using ETA seconds
+  function getEtaClockTime(pilot) {
+    const etaSec = getEtaSeconds(pilot);
+    if (etaSec === null) return 'N/A';
+    const now = new Date();
+    const etaDate = new Date(now.getTime() + etaSec * 1000);
+    const hh = etaDate.getUTCHours().toString().padStart(2, '0');
+    const mm = etaDate.getUTCMinutes().toString().padStart(2, '0');
+    return `${hh}:${mm}`;
   }
 
   function getAirlineCode(callsign) {
@@ -304,7 +312,7 @@
     return n.toString();
   }
 
-  // ARRIVAL STATUS + wording
+  // ARRIVAL STATUS + wording (still based on ETA seconds)
   function arrStatusAndGateText(pilot) {
     const eta = getEtaSeconds(pilot);
     if (eta == null) {
@@ -339,68 +347,58 @@
     const nowSec = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60;
     const diff = sec - nowSec;
 
-    // base display time (may be updated for delay)
-    let displayTime = secondsToTime(sec);
+    // Time column must always show SCHEDULED departure time
+    const schedTime = secondsToTime(sec);
+    let status = '';
+    let statusClass = 'status-scheduled';
+    let gateText = '';
 
-    // if still on ground well after sched, mark delayed and push est time +10 min
+    // still on ground after sched → delayed, show est time only in status
     if (onGround && diff < 0) {
-      const delayMinutes = Math.ceil(Math.abs(diff) / 600) * 10; // steps of 10 min
+      const delayMinutes = Math.ceil(Math.abs(diff) / 600) * 10;
       const newEstSec = sec + delayMinutes * 60;
-      displayTime = secondsToTime(newEstSec);
+      const estStr = secondsToTime(newEstSec);
       return {
-        status: `Delayed ${displayTime}`,
+        status: `Delayed ${estStr}`,
         statusClass: 'status-delayed',
         gateText: getGateFromCallsign(callsign),
-        displayTime
+        displayTime: schedTime
       };
     }
 
     // already gone: keep on board up to 10 minutes after sched, then drop
     if (!onGround && diff < -600) {
       return {
-        status: 'HIDE',          // special marker to filter out
+        status: 'HIDE',
         statusClass: 'status-departed',
         gateText: '',
-        displayTime
+        displayTime: schedTime
       };
     }
 
     if (diff < -90) {
-      return { status: 'Departed', statusClass: 'status-departed', gateText: '', displayTime };
-    }
-    if (diff < 0) {
-      return {
-        status: 'Gate closed',
-        statusClass: 'status-closing',
-        gateText: getGateFromCallsign(callsign),
-        displayTime
-      };
-    }
-    if (diff < 900) {
-      return {
-        status: 'Boarding',
-        statusClass: 'status-boarding',
-        gateText: getGateFromCallsign(callsign),
-        displayTime
-      };
-    }
-    if (diff < 1800) {
-      return {
-        status: 'Gate open',
-        statusClass: 'status-gate-open',
-        gateText: getGateFromCallsign(callsign),
-        displayTime
-      };
+      status = 'Departed';
+      statusClass = 'status-departed';
+    } else if (diff < 0) {
+      status = 'Gate closed';
+      statusClass = 'status-closing';
+      gateText = getGateFromCallsign(callsign);
+    } else if (diff < 900) {
+      status = 'Boarding';
+      statusClass = 'status-boarding';
+      gateText = getGateFromCallsign(callsign);
+    } else if (diff < 1800) {
+      status = 'Gate open';
+      statusClass = 'status-gate-open';
+      gateText = getGateFromCallsign(callsign);
+    } else {
+      const infoTimeSec = sec - 1800;
+      const infoStr = secondsToTime(infoTimeSec);
+      status = `Gate info at ${infoStr}`;
+      statusClass = 'status-scheduled';
     }
 
-    const infoTimeSec = sec - 1800;
-    const infoStr = secondsToTime(infoTimeSec);
-    return {
-      status: `Gate info at ${infoStr}`,
-      statusClass: 'status-scheduled',
-      gateText: '',
-      displayTime
-    };
+    return { status, statusClass, gateText, displayTime: schedTime };
   }
 
   async function fetchFlights(token) {
@@ -436,12 +434,14 @@
              f.flightPlan.departureId.toUpperCase() === airport;
     });
 
+    // sort arrivals by ETA seconds
     arrivals.sort((a, b) => {
       const timeA = getEtaSeconds(a) || 999999;
       const timeB = getEtaSeconds(b) || 999999;
       return timeA - timeB;
     });
 
+    // sort departures by scheduled dep time
     departures.sort((a, b) => {
       const timeA = a.flightPlan.departureTime || 999999;
       const timeB = b.flightPlan.departureTime || 999999;
@@ -450,7 +450,7 @@
 
     const arrivalRows = (arrivals.slice(0, 20).map(f => {
       const fromAirport = f.flightPlan.departureId || 'N/A';
-      const sched = getEtaFormatted(f);
+      const etaClock = getEtaClockTime(f);       // EST ARRIVAL TIME (UTC)
       const { status, statusClass, gateText } = arrStatusAndGateText(f);
       const logo = getLogoImg(f.callsign);
       const gate = gateText || getGateFromCallsign(f.callsign);
@@ -458,7 +458,7 @@
       return `
         <tr>
           <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${sched}</td>
+          <td class="time-cell">${etaClock}</td>
           <td>${fromAirport}</td>
           <td class="callsign-cell">${f.callsign}</td>
           <td class="status-cell ${statusClass}">${status}</td>
@@ -476,7 +476,6 @@
       const onGround = isOnGround(f);
       const info = depStatusAndGateText(schedSec, f.callsign, onGround);
 
-      // if marked HIDE, skip this flight completely
       if (info.status === 'HIDE') return;
 
       const logo = getLogoImg(f.callsign);
