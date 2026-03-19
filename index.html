@@ -128,7 +128,7 @@
     .callsign-cell {
       font-family: "Courier New", monospace;
       font-weight: bold;
-      color: #fdcd01;
+      color: #f6ee82; /* flight callsign colour */
     }
 
     /* airline column: taller cell, logo fills the block */
@@ -168,6 +168,13 @@
     .status-arrived { color: #ffffff; }
     .status-cancelled { color: #ff6666; }
     .status-delayed { color: #ff6666; }
+
+    /* Gate column colour */
+    #arrivalsBody tr td:last-child,
+    #departuresBody tr td:last-child {
+      color: #f6ee82;
+      font-weight: bold;
+    }
 
     .meta {
       margin-top: 6px;
