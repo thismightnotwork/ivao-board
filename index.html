@@ -342,7 +342,8 @@
   const btnVatsim      = document.getElementById('btnVatsim');
   const pageIndicator  = document.getElementById('pageIndicator');
 
-  let rowsPerPage = 12;
+  // fixed pagination: 8 rows per page
+  let rowsPerPage = 8;
   let currentPage = 1;
   let pageCount = 1;
 
@@ -353,27 +354,7 @@
     return Array.from(tbody.querySelectorAll('tr'));
   }
 
-  // responsive rowsPerPage based on viewport height with sane min/max
-  function recalcRowsPerPage() {
-    const viewport = window.innerHeight;
-    const reserved =
-      20 +  // top padding
-      30 +  // network toggle
-      40 +  // title
-      40 +  // airport input
-      20 +  // meta + page indicator
-      40;   // ticker
-    const availableForTables = Math.max(120, viewport - reserved);
-    const rowHeight = 22; // approx row height in px
-    const possibleRows = Math.floor(availableForTables / rowHeight);
-
-    const MIN_ROWS = 6;
-    const MAX_ROWS = 16;
-    rowsPerPage = Math.min(Math.max(possibleRows, MIN_ROWS), MAX_ROWS);
-  }
-
   function computePageCount() {
-    recalcRowsPerPage();
     const arrRows = getAllRows(arrivalsBody);
     const depRows = getAllRows(departuresBody);
     const maxLen = Math.max(arrRows.length, depRows.length);
@@ -401,8 +382,8 @@
     pageIndicator.textContent = `Page ${currentPage} of ${pageCount}`;
   }
 
+  // optional: if window resizes, reapply current page
   window.addEventListener('resize', () => {
-    recalcRowsPerPage();
     showPage(currentPage);
   });
 
@@ -640,7 +621,7 @@
 
     const data = await res.json();
     if (!data.clients || !data.clients.pilots) {
-      throw new Error('API response missing "clients.pilots" array');
+      throw new Error('API response missing \"clients.pilots\" array');
     }
 
     const pilots = data.clients.pilots;
@@ -671,7 +652,7 @@
 
     let arrivalRowsStr = '';
     if (arrivals.length === 0) {
-      arrivalRowsStr = '<tr><td colspan="6">No arrivals</td></tr>';
+      arrivalRowsStr = '<tr><td colspan=\"6\">No arrivals</td></tr>';
     } else {
       arrivalRowsStr = arrivals.slice(0, 100).map(f => {
         const fromAirport = f.flightPlan.departureId || 'N/A';
@@ -696,11 +677,11 @@
 
         return `
           <tr>
-            <td class="airline-cell">${logo}</td>
-            <td class="time-cell">${etaClock}</td>
-            <td class="callsign-cell">${f.callsign}</td>
+            <td class=\"airline-cell\">${logo}</td>
+            <td class=\"time-cell\">${etaClock}</td>
+            <td class=\"callsign-cell\">${f.callsign}</td>
             <td>${fromAirport}</td>
-            <td class="status-cell ${statusClass}">${status}</td>
+            <td class=\"status-cell ${statusClass}\">${status}</td>
             <td>${gate || ''}</td>
           </tr>
         `;
@@ -732,11 +713,11 @@
 
       depRowsArray.push(`
         <tr>
-          <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${info.displayTime}</td>
-          <td class="callsign-cell">${f.callsign}</td>
+          <td class=\"airline-cell\">${logo}</td>
+          <td class=\"time-cell\">${info.displayTime}</td>
+          <td class=\"callsign-cell\">${f.callsign}</td>
           <td>${toAirport}</td>
-          <td class="status-cell ${info.statusClass}">${info.status}</td>
+          <td class=\"status-cell ${info.statusClass}\">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
       `);
@@ -744,7 +725,7 @@
 
     let departureRowsStr = '';
     if (depRowsArray.length === 0) {
-      departureRowsStr = '<tr><td colspan="6">No departures</td></tr>';
+      departureRowsStr = '<tr><td colspan=\"6\">No departures</td></tr>';
     } else {
       departureRowsStr = depRowsArray.join('');
     }
@@ -810,7 +791,7 @@
 
     let arrivalRowsStr = '';
     if (arrivals.length === 0) {
-      arrivalRowsStr = '<tr><td colspan="6">No arrivals</td></tr>';
+      arrivalRowsStr = '<tr><td colspan=\"6\">No arrivals</td></tr>';
     } else {
       arrivalRowsStr = arrivals.slice(0, 100).map(f => {
         const fromAirport = f.flight_plan.departure || 'N/A';
@@ -833,11 +814,11 @@
 
         return `
           <tr>
-            <td class="airline-cell">${logo}</td>
-            <td class="time-cell">${etaClock}</td>
-            <td class="callsign-cell">${f.callsign}</td>
+            <td class=\"airline-cell\">${logo}</td>
+            <td class=\"time-cell\">${etaClock}</td>
+            <td class=\"callsign-cell\">${f.callsign}</td>
             <td>${fromAirport}</td>
-            <td class="status-cell ${statusClass}">${status}</td>
+            <td class=\"status-cell ${statusClass}\">${status}</td>
             <td>${gate || ''}</td>
           </tr>
         `;
@@ -867,11 +848,11 @@
 
       depRowsArray.push(`
         <tr>
-          <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${info.displayTime}</td>
-          <td class="callsign-cell">${f.callsign}</td>
+          <td class=\"airline-cell\">${logo}</td>
+          <td class=\"time-cell\">${info.displayTime}</td>
+          <td class=\"callsign-cell\">${f.callsign}</td>
           <td>${toAirport}</td>
-          <td class="status-cell ${info.statusClass}">${info.status}</td>
+          <td class=\"status-cell ${info.statusClass}\">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
       `);
@@ -879,7 +860,7 @@
 
     let departureRowsStr = '';
     if (depRowsArray.length === 0) {
-      departureRowsStr = '<tr><td colspan="6">No departures</td></tr>';
+      departureRowsStr = '<tr><td colspan=\"6\">No departures</td></tr>';
     } else {
       departureRowsStr = depRowsArray.join('');
     }
@@ -898,8 +879,8 @@
   async function update() {
     try {
       meta.textContent = 'Updating...';
-      arrivalsBody.innerHTML   = '<tr><td colspan="6">Loading...</td></tr>';
-      departuresBody.innerHTML = '<tr><td colspan="6">Loading...</td></tr>';
+      arrivalsBody.innerHTML   = '<tr><td colspan=\"6\">Loading...</td></tr>';
+      departuresBody.innerHTML = '<tr><td colspan=\"6\">Loading...</td></tr>';
 
       if (network === 'ivao') {
         const token = await getToken();
@@ -909,8 +890,8 @@
       }
     } catch (e) {
       console.error('Flight fetch error:', e);
-      arrivalsBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
-      departuresBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
+      arrivalsBody.innerHTML = '<tr><td colspan=\"6\">Error loading flights</td></tr>';
+      departuresBody.innerHTML = '<tr><td colspan=\"6\">Error loading flights</td></tr>';
       meta.textContent = 'Error getting data';
       showPage(1);
     }
