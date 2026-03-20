@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>IVAO Flight Board</title>
   <style>
-    /* Self‑hosted Istok Web */
     @font-face {
       font-family: 'Istok Web';
       src: url('fonts/IstokWeb-Regular.ttf') format('truetype');
@@ -354,12 +353,11 @@
   btnIvao.addEventListener('click', () => { network = 'ivao'; currentPage = 1; update(); });
   btnVatsim.addEventListener('click', () => { network = 'vatsim'; currentPage = 1; update(); });
 
-  // ------------ pagination state ------------
+  // ------- pagination state (no timer) -------
 
   const rowsPerPage = 12;
   let currentPage = 1;
   let pageCount = 1;
-  let autoPageTimer = null;
 
   function getAllRows(tbody) {
     return Array.from(tbody.querySelectorAll('tr'));
@@ -393,15 +391,7 @@
     pageIndicator.textContent = `Page ${currentPage} of ${pageCount}`;
   }
 
-  function startAutoPaging() {
-    if (autoPageTimer) clearInterval(autoPageTimer);
-    autoPageTimer = setInterval(() => {
-      const next = currentPage >= pageCount ? 1 : currentPage + 1;
-      showPage(next);
-    }, 10000);
-  }
-
-  // ------------ stands ------------
+  // ------- stands etc. (same as before) -------
 
   const standsUrl = 'https://raw.githubusercontent.com/thismightnotwork/ivao-board/main/stands/stands.txt';
   let standsByAirport = {};
@@ -629,7 +619,7 @@
     return { status, statusClass, gateText, displayTime: schedTime };
   }
 
-  // ------------ IVAO ------------
+  // ------- IVAO -------
 
   async function fetchIvao(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
@@ -753,10 +743,9 @@
     computePageCount();
     const nextPage = currentPage >= pageCount ? 1 : currentPage + 1;
     showPage(nextPage);
-    startAutoPaging();
   }
 
-  // ------------ VATSIM ------------
+  // ------- VATSIM -------
 
   function vatsimDepSec(deptime) {
     if (!deptime) return null;
@@ -879,10 +868,9 @@
     computePageCount();
     const nextPage = currentPage >= pageCount ? 1 : currentPage + 1;
     showPage(nextPage);
-    startAutoPaging();
   }
 
-  // ------------ main update ------------
+  // ------- main update -------
 
   async function update() {
     try {
