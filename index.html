@@ -127,7 +127,6 @@
       text-transform: uppercase;
       border-bottom: 2px solid #f6ee82;
       text-align: left;
-      font-family: 'Istok Web', sans-serif;
     }
 
     table {
@@ -136,7 +135,6 @@
       background: #000;
       color: #fff;
       table-layout: fixed;
-      font-family: 'Istok Web', sans-serif;
     }
 
     th, td {
@@ -219,7 +217,6 @@
       margin-top: 6px;
       font-size: 11px;
       color: #aaa;
-      font-family: 'Istok Web', sans-serif;
     }
 
     #pageIndicator {
@@ -227,7 +224,6 @@
       font-size: 12px;
       color: #ccc;
       text-align: center;
-      font-family: 'Istok Web', sans-serif;
     }
 
     @media (max-width: 900px) {
@@ -257,7 +253,6 @@
       animation: ticker 30s linear infinite;
       color: #f6ee82;
       font-size: 13px;
-      font-family: 'Istok Web', sans-serif;
     }
 
     @keyframes ticker {
@@ -350,14 +345,13 @@
   const btnVatsim      = document.getElementById('btnVatsim');
   const pageIndicator  = document.getElementById('pageIndicator');
 
-  btnIvao.addEventListener('click', () => { network = 'ivao'; currentPage = 1; update(); });
-  btnVatsim.addEventListener('click', () => { network = 'vatsim'; currentPage = 1; update(); });
-
-  // ------- pagination state (no timer) -------
-
+  // pagination state
   const rowsPerPage = 12;
   let currentPage = 1;
   let pageCount = 1;
+
+  btnIvao.addEventListener('click', () => { network = 'ivao'; currentPage = 1; update(); });
+  btnVatsim.addEventListener('click', () => { network = 'vatsim'; currentPage = 1; update(); });
 
   function getAllRows(tbody) {
     return Array.from(tbody.querySelectorAll('tr'));
@@ -391,8 +385,7 @@
     pageIndicator.textContent = `Page ${currentPage} of ${pageCount}`;
   }
 
-  // ------- stands etc. (same as before) -------
-
+  // stands etc.
   const standsUrl = 'https://raw.githubusercontent.com/thismightnotwork/ivao-board/main/stands/stands.txt';
   let standsByAirport = {};
 
@@ -619,8 +612,7 @@
     return { status, statusClass, gateText, displayTime: schedTime };
   }
 
-  // ------- IVAO -------
-
+  // IVAO
   async function fetchIvao(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
     const res = await fetch(url, {
@@ -728,7 +720,7 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `;
+      `);
     });
 
     const departureRows = depRowsArray.slice(0, 100).join('') ||
@@ -745,8 +737,7 @@
     showPage(nextPage);
   }
 
-  // ------- VATSIM -------
-
+  // VATSIM
   function vatsimDepSec(deptime) {
     if (!deptime) return null;
     const s = String(deptime).padStart(4, '0');
@@ -870,8 +861,7 @@
     showPage(nextPage);
   }
 
-  // ------- main update -------
-
+  // main update
   async function update() {
     try {
       meta.textContent = 'Updating...';
