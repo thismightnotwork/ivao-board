@@ -353,19 +353,23 @@
     return Array.from(tbody.querySelectorAll('tr'));
   }
 
+  // responsive rowsPerPage based on viewport height with sane min/max
   function recalcRowsPerPage() {
     const viewport = window.innerHeight;
     const reserved =
-      20 +  // body padding top
+      20 +  // top padding
       30 +  // network toggle
       40 +  // title
-      40 +  // airport input row
+      40 +  // airport input
       20 +  // meta + page indicator
-      40;   // ticker bar
-    const availableForTables = Math.max(100, viewport - reserved);
-    const rowHeight = 20; // approx px per row
+      40;   // ticker
+    const availableForTables = Math.max(120, viewport - reserved);
+    const rowHeight = 22; // approx row height in px
     const possibleRows = Math.floor(availableForTables / rowHeight);
-    rowsPerPage = Math.max(1, possibleRows);
+
+    const MIN_ROWS = 6;
+    const MAX_ROWS = 16;
+    rowsPerPage = Math.min(Math.max(possibleRows, MIN_ROWS), MAX_ROWS);
   }
 
   function computePageCount() {
