@@ -27,6 +27,7 @@
       color: #fff;
       margin: 0;
       padding: 20px;
+      overflow: hidden; /* so pages don't scroll, we page instead */
     }
 
     h1 {
@@ -225,10 +226,49 @@
       font-family: 'Istok Web', sans-serif;
     }
 
+    /* Page indicator under the tables */
+    #pageIndicator {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #ccc;
+      text-align: center;
+      font-family: 'Istok Web', sans-serif;
+    }
+
     @media (max-width: 900px) {
       .board-container {
         flex-direction: column;
       }
+    }
+
+    /* Ticker bar */
+    .ticker-wrap {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111;
+      overflow: hidden;
+      border-top: 2px solid #f6ee82;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .ticker {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: ticker 30s linear infinite;
+      color: #f6ee82;
+      font-size: 13px;
+      font-family: 'Istok Web', sans-serif;
+    }
+
+    @keyframes ticker {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
     }
   </style>
 </head>
@@ -295,6 +335,16 @@
   </div>
 
   <div class="meta" id="meta">Updating...</div>
+  <div id="pageIndicator">Page 1 of 1</div>
+
+  <!-- Ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker">
+      Please keep your luggage with you at all times. Do not leave bags unattended.
+      Smoking and vaping are not permitted in this building.
+      Please keep your luggage with you at all times. Do not leave bags unattended.
+    </div>
+  </div>
 
 <script>
   let airport = 'EGKK';
@@ -308,9 +358,59 @@
   const meta           = document.getElementById('meta');
   const btnIvao        = document.getElementById('btnIvao');
   const btnVatsim      = document.getElementById('btnVatsim');
+  const pageIndicator  = document.getElementById('pageIndicator');
 
   btnIvao.addEventListener('click', () => { network = 'ivao'; update(); });
   btnVatsim.addEventListener('click', () => { network = 'vatsim'; update(); });
+
+  // ---------- PAGINATION STATE ----------
+
+  const rowsPerPage = 12;  // tweak to fit your screen
+  let currentPage = 1;
+  let pageCount = 1;
+  let autoPageTimer = null;
+
+  function getAllRows(tbody) {
+    return Array.from(tbody.querySelectorAll('tr'));
+  }
+
+  function computePageCount() {
+    const arrRows = getAllRows(arrivalsBody);
+    const depRows = getAllRows(departuresBody);
+    const maxLen = Math.max(arrRows.length, depRows.length);
+    pageCount = Math.max(1, Math.ceil(maxLen / rowsPerPage));
+  }
+
+  function showPage(page) {
+    computePageCount();
+    if (page < 1) page = 1;
+    if (page > pageCount) page = pageCount;
+    currentPage = page;
+
+    const arrRows = getAllRows(arrivalsBody);
+    const depRows = getAllRows(departuresBody);
+
+    const start = (currentPage - 1) * rowsPerPage;
+    const end   = start + rowsPerPage;
+
+    arrRows.forEach((tr, idx) => {
+      tr.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    depRows.forEach((tr, idx) => {
+      tr.style.display = (idx >= start && idx < end) ? '' : 'none';
+    });
+
+    pageIndicator.textContent = `Page ${currentPage} of ${pageCount}`;
+  }
+
+  function startAutoPaging() {
+    if (autoPageTimer) clearInterval(autoPageTimer);
+    autoPageTimer = setInterval(() => {
+      const next = currentPage >= pageCount ? 1 : currentPage + 1;
+      showPage(next);
+    }, 10000); // 10 seconds
+  }
 
   // ---------- Stand data ----------
 
@@ -398,7 +498,6 @@
         best = s;
       }
     }
-    // capture radius: ~40 m is tight but realistic for nose-in to stand center
     const MAX_STAND_RADIUS_M = 40;
     if (!best || bestDistM > MAX_STAND_RADIUS_M) return '';
     return best.name;
@@ -507,7 +606,6 @@
     let statusClass = 'status-scheduled';
     let gateText = '';
 
-    // still on ground after sched → delayed, show est time only in status
     if (onGround && diff < 0) {
       const delayMinutes = Math.ceil(Math.abs(diff) / 600) * 10;
       const newEstSec = sec + delayMinutes * 60;
@@ -520,7 +618,6 @@
       };
     }
 
-    // already gone: keep on board up to 10 minutes after sched, then drop
     if (!onGround && diff < -600) {
       return {
         status: 'HIDE',
@@ -602,9 +699,9 @@
       return timeA - timeB;
     });
 
-    const arrivalRows = (arrivals.slice(0, 20).map(f => {
+    const arrivalRows = (arrivals.slice(0, 100).map(f => {
       const fromAirport = f.flightPlan.departureId || 'N/A';
-      const etaClock = getEtaClockTime(f);  // EST ARRIVAL UTC
+      const etaClock = getEtaClockTime(f);
       const { status, statusClass, gateText } = arrStatusAndGateText(f);
       const logo = getLogoImg(f.callsign);
 
@@ -671,7 +768,7 @@
       `);
     });
 
-    const departureRows = depRowsArray.slice(0, 20).join('') ||
+    const departureRows = depRowsArray.slice(0, 100).join('') ||
       '<tr><td colspan="6">No departures</td></tr>';
 
     arrivalsBody.innerHTML = arrivalRows;
@@ -679,6 +776,10 @@
 
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (IVAO)`;
+
+    // after new data, recompute pages and restart auto paging
+    showPage(1);
+    startAutoPaging();
   }
 
   // ---------- VATSIM ----------
@@ -731,7 +832,7 @@
       .filter(f => f.flight_plan && f.flight_plan.departure && f.flight_plan.departure.toUpperCase() === airport)
       .sort((a, b) => (vatsimDepSec(a.flight_plan.deptime) || 999999) - (vatsimDepSec(b.flight_plan.deptime) || 999999));
 
-    const arrivalRows = (arrivals.slice(0, 20).map(f => {
+    const arrivalRows = (arrivals.slice(0, 100).map(f => {
       const fromAirport = f.flight_plan.departure || 'N/A';
       const etaClock = vatsimEtaClock(f);
       const { status, statusClass, gateText } = vatsimArrStatus(f);
@@ -765,7 +866,7 @@
       const toAirport = f.flight_plan.arrival || 'N/A';
       const schedSec = vatsimDepSec(f.flight_plan.deptime);
       const onGround = f.groundspeed < 30;
-      const info = depStatusAndGateText(schedSec, f.callsign, onGround); // reuse IVAO dep logic
+      const info = depStatusAndGateText(schedSec, f.callsign, onGround);
 
       if (info.status === 'HIDE') return;
 
@@ -792,7 +893,7 @@
       `);
     });
 
-    const departureRows = depRowsArray.slice(0, 20).join('') ||
+    const departureRows = depRowsArray.slice(0, 100).join('') ||
       '<tr><td colspan="6">No departures</td></tr>';
 
     arrivalsBody.innerHTML = arrivalRows;
@@ -800,6 +901,9 @@
 
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (VATSIM)`;
+
+    showPage(1);
+    startAutoPaging();
   }
 
   // ---------- Main update ----------
@@ -821,6 +925,7 @@
       arrivalsBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
       departuresBody.innerHTML = '<tr><td colspan="6">Error loading flights</td></tr>';
       meta.textContent = 'Error getting data';
+      showPage(1);
     }
   }
 
@@ -847,7 +952,7 @@
   // Initialisation: load stands, then start updating
   (async () => {
     await loadStands();
-    update();
+    await update();
     setInterval(update, 15000);
   })();
 </script>
