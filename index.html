@@ -65,7 +65,6 @@
       border: 1px solid #666;
       outline: none;
       color: #000;
-      font-family: 'Istok Web', sans-serif;
     }
 
     #updateBtn {
@@ -77,7 +76,6 @@
       cursor: pointer;
       background: #333;
       color: #fff;
-      font-family: 'Istok Web', sans-serif;
     }
 
     #updateBtn:hover {
@@ -93,7 +91,6 @@
       padding: 2px 8px;
       margin-right: 4px;
       font-size: 13px;
-      font-family: 'Istok Web', sans-serif;
       border-radius: 3px;
       border: 1px solid #666;
       background: #222;
@@ -345,7 +342,6 @@
   const btnVatsim      = document.getElementById('btnVatsim');
   const pageIndicator  = document.getElementById('pageIndicator');
 
-  // pagination state
   const rowsPerPage = 12;
   let currentPage = 1;
   let pageCount = 1;
@@ -385,7 +381,6 @@
     pageIndicator.textContent = `Page ${currentPage} of ${pageCount}`;
   }
 
-  // stands etc.
   const standsUrl = 'https://raw.githubusercontent.com/thismightnotwork/ivao-board/main/stands/stands.txt';
   let standsByAirport = {};
 
@@ -534,18 +529,10 @@
       return { status: 'En route', statusClass: 'status-scheduled', gateText: '' };
     }
     if (eta < 30) {
-      return {
-        status: 'Arrived',
-        statusClass: 'status-arrived',
-        gateText: getGateFromCallsign(pilot.callsign)
-      };
+      return { status: 'Arrived', statusClass: 'status-arrived', gateText: getGateFromCallsign(pilot.callsign) };
     }
     if (eta < 90) {
-      return {
-        status: 'Landing',
-        statusClass: 'status-final',
-        gateText: getGateFromCallsign(pilot.callsign)
-      };
+      return { status: 'Landing', statusClass: 'status-final', gateText: getGateFromCallsign(pilot.callsign) };
     }
     if (eta < 180) {
       return { status: 'Final approach', statusClass: 'status-final', gateText: '' };
@@ -612,7 +599,6 @@
     return { status, statusClass, gateText, displayTime: schedTime };
   }
 
-  // IVAO
   async function fetchIvao(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
     const res = await fetch(url, {
@@ -640,7 +626,7 @@
              f.flightPlan.arrivalId.toUpperCase() === airport;
     });
 
-    let departures = pilots.filter(f => {
+    const departures = pilots.filter(f => {
       if (!f.flightPlan) return false;
       return f.flightPlan.departureId &&
              f.flightPlan.departureId.toUpperCase() === airport;
@@ -658,39 +644,47 @@
       return timeA - timeB;
     });
 
-    const arrivalRows = (arrivals.slice(0, 100).map(f => {
-      const fromAirport = f.flightPlan.departureId || 'N/A';
-      const etaClock = getEtaClockTime(f);
-      const { status, statusClass, gateText } = arrStatusAndGateText(f);
-      const logo = getLogoImg(f.callsign);
+    let arrivalRowsStr = '';
+    if (arrivals.length === 0) {
+      arrivalRowsStr = '<tr><td colspan="6">No arrivals</td></tr>';
+    } else {
+      arrivalRowsStr = arrivals.slice(0, 100).map(f => {
+        const fromAirport = f.flightPlan.departureId || 'N/A';
+        const etaClock = getEtaClockTime(f);
+        const statusObj = arrStatusAndGateText(f);
+        const status = statusObj.status;
+        const statusClass = statusObj.statusClass;
+        const gateText = statusObj.gateText;
+        const logo = getLogoImg(f.callsign);
 
-      const lat = f.lastTrack && typeof f.lastTrack.latitude === 'number'
-        ? f.lastTrack.latitude : null;
-      const lon = f.lastTrack && typeof f.lastTrack.longitude === 'number'
-        ? f.lastTrack.longitude : null;
-      const onGroundArr = isOnGround(f);
+        const lat = f.lastTrack && typeof f.lastTrack.latitude === 'number'
+          ? f.lastTrack.latitude : null;
+        const lon = f.lastTrack && typeof f.lastTrack.longitude === 'number'
+          ? f.lastTrack.longitude : null;
+        const onGroundArr = isOnGround(f);
 
-      let gate = gateText || getGateFromCallsign(f.callsign);
-      if (onGroundArr) {
-        const standName = nearestStandName(lat, lon, airport);
-        if (standName) gate = standName;
-      }
+        let gate = gateText || getGateFromCallsign(f.callsign);
+        if (onGroundArr) {
+          const standName = nearestStandName(lat, lon, airport);
+          if (standName) gate = standName;
+        }
 
-      return `
-        <tr>
-          <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${etaClock}</td>
-          <td class="callsign-cell">${f.callsign}</td>
-          <td>${fromAirport}</td>
-          <td class="status-cell ${statusClass}">${status}</td>
-          <td>${gate || ''}</td>
-        </tr>
-      `;
-    }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
+        return `
+          <tr>
+            <td class="airline-cell">${logo}</td>
+            <td class="time-cell">${etaClock}</td>
+            <td class="callsign-cell">${f.callsign}</td>
+            <td>${fromAirport}</td>
+            <td class="status-cell ${statusClass}">${status}</td>
+            <td>${gate || ''}</td>
+          </tr>
+        `;
+      }).join('');
+    }
 
     const depRowsArray = [];
 
-    departures.forEach(f => {
+    departures.slice(0, 100).forEach(f => {
       const toAirport = f.flightPlan.arrivalId || 'N/A';
       const schedSec = f.flightPlan.departureTime;
       const onGround = isOnGround(f);
@@ -723,11 +717,15 @@
       `);
     });
 
-    const departureRows = depRowsArray.slice(0, 100).join('') ||
-      '<tr><td colspan="6">No departures</td></tr>';
+    let departureRowsStr = '';
+    if (depRowsArray.length === 0) {
+      departureRowsStr = '<tr><td colspan="6">No departures</td></tr>';
+    } else {
+      departureRowsStr = depRowsArray.join('');
+    }
 
-    arrivalsBody.innerHTML = arrivalRows;
-    departuresBody.innerHTML = departureRows;
+    arrivalsBody.innerHTML = arrivalRowsStr;
+    departuresBody.innerHTML = departureRowsStr;
 
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (IVAO)`;
@@ -737,7 +735,6 @@
     showPage(nextPage);
   }
 
-  // VATSIM
   function vatsimDepSec(deptime) {
     if (!deptime) return null;
     const s = String(deptime).padStart(4, '0');
@@ -786,37 +783,45 @@
       .filter(f => f.flight_plan && f.flight_plan.departure && f.flight_plan.departure.toUpperCase() === airport)
       .sort((a, b) => (vatsimDepSec(a.flight_plan.deptime) || 999999) - (vatsimDepSec(b.flight_plan.deptime) || 999999));
 
-    const arrivalRows = (arrivals.slice(0, 100).map(f => {
-      const fromAirport = f.flight_plan.departure || 'N/A';
-      const etaClock = vatsimEtaClock(f);
-      const { status, statusClass, gateText } = vatsimArrStatus(f);
-      const logo = getLogoImg(f.callsign);
+    let arrivalRowsStr = '';
+    if (arrivals.length === 0) {
+      arrivalRowsStr = '<tr><td colspan="6">No arrivals</td></tr>';
+    } else {
+      arrivalRowsStr = arrivals.slice(0, 100).map(f => {
+        const fromAirport = f.flight_plan.departure || 'N/A';
+        const etaClock = vatsimEtaClock(f);
+        const statusObj = vatsimArrStatus(f);
+        const status = statusObj.status;
+        const statusClass = statusObj.statusClass;
+        const gateText = statusObj.gateText;
+        const logo = getLogoImg(f.callsign);
 
-      const lat = typeof f.latitude === 'number' ? f.latitude : null;
-      const lon = typeof f.longitude === 'number' ? f.longitude : null;
-      const onGroundArr = f.groundspeed < 30;
+        const lat = typeof f.latitude === 'number' ? f.latitude : null;
+        const lon = typeof f.longitude === 'number' ? f.longitude : null;
+        const onGroundArr = f.groundspeed < 30;
 
-      let gate = gateText || getGateFromCallsign(f.callsign);
-      if (onGroundArr) {
-        const standName = nearestStandName(lat, lon, airport);
-        if (standName) gate = standName;
-      }
+        let gate = gateText || getGateFromCallsign(f.callsign);
+        if (onGroundArr) {
+          const standName = nearestStandName(lat, lon, airport);
+          if (standName) gate = standName;
+        }
 
-      return `
-        <tr>
-          <td class="airline-cell">${logo}</td>
-          <td class="time-cell">${etaClock}</td>
-          <td class="callsign-cell">${f.callsign}</td>
-          <td>${fromAirport}</td>
-          <td class="status-cell ${statusClass}">${status}</td>
-          <td>${gate || ''}</td>
-        </tr>
-      `;
-    }).join('')) || '<tr><td colspan="6">No arrivals</td></tr>';
+        return `
+          <tr>
+            <td class="airline-cell">${logo}</td>
+            <td class="time-cell">${etaClock}</td>
+            <td class="callsign-cell">${f.callsign}</td>
+            <td>${fromAirport}</td>
+            <td class="status-cell ${statusClass}">${status}</td>
+            <td>${gate || ''}</td>
+          </tr>
+        `;
+      }).join('');
+    }
 
     const depRowsArray = [];
 
-    departures.forEach(f => {
+    departures.slice(0, 100).forEach(f => {
       const toAirport = f.flight_plan.arrival || 'N/A';
       const schedSec = vatsimDepSec(f.flight_plan.deptime);
       const onGround = f.groundspeed < 30;
@@ -844,14 +849,18 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `;
+      `);
     });
 
-    const departureRows = depRowsArray.slice(0, 100).join('') ||
-      '<tr><td colspan="6">No departures</td></tr>';
+    let departureRowsStr = '';
+    if (depRowsArray.length === 0) {
+      departureRowsStr = '<tr><td colspan="6">No departures</td></tr>';
+    } else {
+      departureRowsStr = depRowsArray.join('');
+    }
 
-    arrivalsBody.innerHTML = arrivalRows;
-    departuresBody.innerHTML = departureRows;
+    arrivalsBody.innerHTML = arrivalRowsStr;
+    departuresBody.innerHTML = departureRowsStr;
 
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (VATSIM)`;
@@ -861,7 +870,6 @@
     showPage(nextPage);
   }
 
-  // main update
   async function update() {
     try {
       meta.textContent = 'Updating...';
