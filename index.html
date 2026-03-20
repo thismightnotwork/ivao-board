@@ -342,7 +342,7 @@
   const btnVatsim      = document.getElementById('btnVatsim');
   const pageIndicator  = document.getElementById('pageIndicator');
 
-  const rowsPerPage = 12;
+  let rowsPerPage = 12;
   let currentPage = 1;
   let pageCount = 1;
 
@@ -353,7 +353,23 @@
     return Array.from(tbody.querySelectorAll('tr'));
   }
 
+  function recalcRowsPerPage() {
+    const viewport = window.innerHeight;
+    const reserved =
+      20 +  // body padding top
+      30 +  // network toggle
+      40 +  // title
+      40 +  // airport input row
+      20 +  // meta + page indicator
+      40;   // ticker bar
+    const availableForTables = Math.max(100, viewport - reserved);
+    const rowHeight = 20; // approx px per row
+    const possibleRows = Math.floor(availableForTables / rowHeight);
+    rowsPerPage = Math.max(1, possibleRows);
+  }
+
   function computePageCount() {
+    recalcRowsPerPage();
     const arrRows = getAllRows(arrivalsBody);
     const depRows = getAllRows(departuresBody);
     const maxLen = Math.max(arrRows.length, depRows.length);
@@ -380,6 +396,11 @@
 
     pageIndicator.textContent = `Page ${currentPage} of ${pageCount}`;
   }
+
+  window.addEventListener('resize', () => {
+    recalcRowsPerPage();
+    showPage(currentPage);
+  });
 
   const standsUrl = 'https://raw.githubusercontent.com/thismightnotwork/ivao-board/main/stands/stands.txt';
   let standsByAirport = {};
