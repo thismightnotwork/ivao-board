@@ -27,7 +27,7 @@
       color: #fff;
       margin: 0;
       padding: 20px;
-      overflow: hidden; /* so pages don't scroll, we page instead */
+      overflow: hidden;
     }
 
     h1 {
@@ -85,7 +85,6 @@
       background: #555;
     }
 
-    /* Simple inline network toggle, no colour theme */
     #networkToggle {
       margin-bottom: 6px;
       font-size: 14px;
@@ -174,7 +173,6 @@
       color: #f6ee82;
     }
 
-    /* airline column: taller cell, logo fills the block */
     #arrivalsBody tr td:first-child,
     #departuresBody tr td:first-child {
       height: 42px;
@@ -212,7 +210,6 @@
     .status-cancelled { color: #ff6666; }
     .status-delayed { color: #ff6666; }
 
-    /* Gate column colour */
     #arrivalsBody tr td:last-child,
     #departuresBody tr td:last-child {
       color: #f6ee82;
@@ -226,7 +223,6 @@
       font-family: 'Istok Web', sans-serif;
     }
 
-    /* Page indicator under the tables */
     #pageIndicator {
       margin-top: 4px;
       font-size: 12px;
@@ -241,7 +237,6 @@
       }
     }
 
-    /* Ticker bar */
     .ticker-wrap {
       position: fixed;
       bottom: 0;
@@ -274,7 +269,6 @@
 </head>
 <body>
 
-  <!-- Network toggle (IVAO / VATSIM) -->
   <div id="networkToggle">
     Network:
     <button id="btnIvao" type="button">IVAO</button>
@@ -293,7 +287,6 @@
   </div>
 
   <div class="board-container">
-    <!-- Arrivals column -->
     <div class="board-column">
       <div class="board-header">Arrivals</div>
       <table>
@@ -313,7 +306,6 @@
       </table>
     </div>
 
-    <!-- Departures column -->
     <div class="board-column">
       <div class="board-header">Departures</div>
       <table>
@@ -337,7 +329,6 @@
   <div class="meta" id="meta">Updating...</div>
   <div id="pageIndicator">Page 1 of 1</div>
 
-  <!-- Ticker -->
   <div class="ticker-wrap">
     <div class="ticker">
       Please keep your luggage with you at all times. Do not leave bags unattended.
@@ -348,7 +339,7 @@
 
 <script>
   let airport = 'EGKK';
-  let network = 'ivao'; // 'ivao' or 'vatsim'
+  let network = 'ivao';
 
   const airportTitle   = document.getElementById('airportTitle');
   const airportInput   = document.getElementById('airportInput');
@@ -360,12 +351,12 @@
   const btnVatsim      = document.getElementById('btnVatsim');
   const pageIndicator  = document.getElementById('pageIndicator');
 
-  btnIvao.addEventListener('click', () => { network = 'ivao'; update(); });
-  btnVatsim.addEventListener('click', () => { network = 'vatsim'; update(); });
+  btnIvao.addEventListener('click', () => { network = 'ivao'; currentPage = 1; update(); });
+  btnVatsim.addEventListener('click', () => { network = 'vatsim'; currentPage = 1; update(); });
 
-  // ---------- PAGINATION STATE ----------
+  // ------------ pagination state ------------
 
-  const rowsPerPage = 12;  // tweak to fit your screen
+  const rowsPerPage = 12;
   let currentPage = 1;
   let pageCount = 1;
   let autoPageTimer = null;
@@ -389,14 +380,12 @@
 
     const arrRows = getAllRows(arrivalsBody);
     const depRows = getAllRows(departuresBody);
-
     const start = (currentPage - 1) * rowsPerPage;
     const end   = start + rowsPerPage;
 
     arrRows.forEach((tr, idx) => {
       tr.style.display = (idx >= start && idx < end) ? '' : 'none';
     });
-
     depRows.forEach((tr, idx) => {
       tr.style.display = (idx >= start && idx < end) ? '' : 'none';
     });
@@ -409,36 +398,32 @@
     autoPageTimer = setInterval(() => {
       const next = currentPage >= pageCount ? 1 : currentPage + 1;
       showPage(next);
-    }, 10000); // 10 seconds
+    }, 10000);
   }
 
-  // ---------- Stand data ----------
+  // ------------ stands ------------
 
   const standsUrl = 'https://raw.githubusercontent.com/thismightnotwork/ivao-board/main/stands/stands.txt';
-  let standsByAirport = {}; // { ICAO: [ {name, lat, lon} ] }
+  let standsByAirport = {};
 
   function parseLat(latStr) {
-    // N054.39.36.740 -> decimal
     const m = latStr.match(/^([NS])(\d{3})\.(\d{2})\.(\d{2}\.\d+)$/);
     if (!m) return null;
     const sign = m[1] === 'S' ? -1 : 1;
     const deg = parseInt(m[2], 10);
     const min = parseInt(m[3], 10);
     const sec = parseFloat(m[4]);
-    const dec = deg + min / 60 + sec / 3600;
-    return sign * dec;
+    return sign * (deg + min / 60 + sec / 3600);
   }
 
   function parseLon(lonStr) {
-    // W006.13.19.370 -> decimal
     const m = lonStr.match(/^([EW])(\d{3})\.(\d{2})\.(\d{2}\.\d+)$/);
     if (!m) return null;
     const sign = m[1] === 'W' ? -1 : 1;
     const deg = parseInt(m[2], 10);
     const min = parseInt(m[3], 10);
     const sec = parseFloat(m[4]);
-    const dec = deg + min / 60 + sec / 3600;
-    return sign * dec;
+    return sign * (deg + min / 60 + sec / 3600);
   }
 
   async function loadStands() {
@@ -467,14 +452,10 @@
     }
   }
 
-  // distance in meters
   function distanceMeters(lat1, lon1, lat2, lon2) {
-    if (
-      lat1 == null || lon1 == null ||
-      lat2 == null || lon2 == null
-    ) return Infinity;
-    const R = 6371000; // meters
-    const toRad = deg => deg * Math.PI / 180;
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return Infinity;
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
@@ -518,7 +499,6 @@
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
 
-  // ETA in seconds FROM NOW (used for ordering/status)
   function getEtaSeconds(pilot) {
     const lastTrack = pilot.lastTrack;
     if (!lastTrack || lastTrack.arrivalDistance === undefined || lastTrack.groundSpeed <= 0) {
@@ -527,7 +507,6 @@
     return Math.round((lastTrack.arrivalDistance / lastTrack.groundSpeed) * 3600);
   }
 
-  // Estimated arrival CLOCK time in UTC, using ETA seconds
   function getEtaClockTime(pilot) {
     const etaSec = getEtaSeconds(pilot);
     if (etaSec === null) return 'N/A';
@@ -566,7 +545,6 @@
     return n.toString();
   }
 
-  // ARRIVAL STATUS + wording (still based on ETA seconds)
   function arrStatusAndGateText(pilot) {
     const eta = getEtaSeconds(pilot);
     if (eta == null) {
@@ -592,7 +570,6 @@
     return { status: 'En route', statusClass: 'status-scheduled', gateText: '' };
   }
 
-  // DEPARTURE STATUS + wording (with DELAYED + est time)
   function depStatusAndGateText(sec, callsign, onGround) {
     if (!sec && sec !== 0) {
       return { status: '', statusClass: 'status-scheduled', gateText: '', displayTime: 'N/A' };
@@ -652,7 +629,7 @@
     return { status, statusClass, gateText, displayTime: schedTime };
   }
 
-  // ---------- IVAO ----------
+  // ------------ IVAO ------------
 
   async function fetchIvao(token) {
     const url = 'https://api.ivao.aero/v2/tracker/whazzup';
@@ -706,11 +683,9 @@
       const logo = getLogoImg(f.callsign);
 
       const lat = f.lastTrack && typeof f.lastTrack.latitude === 'number'
-        ? f.lastTrack.latitude
-        : null;
+        ? f.lastTrack.latitude : null;
       const lon = f.lastTrack && typeof f.lastTrack.longitude === 'number'
-        ? f.lastTrack.longitude
-        : null;
+        ? f.lastTrack.longitude : null;
       const onGroundArr = isOnGround(f);
 
       let gate = gateText || getGateFromCallsign(f.callsign);
@@ -744,11 +719,9 @@
       const logo = getLogoImg(f.callsign);
 
       const lat = f.lastTrack && typeof f.lastTrack.latitude === 'number'
-        ? f.lastTrack.latitude
-        : null;
+        ? f.lastTrack.latitude : null;
       const lon = f.lastTrack && typeof f.lastTrack.longitude === 'number'
-        ? f.lastTrack.longitude
-        : null;
+        ? f.lastTrack.longitude : null;
 
       let gate = info.gateText || getGateFromCallsign(f.callsign);
       if (onGround) {
@@ -765,7 +738,7 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `);
+      `;
     });
 
     const departureRows = depRowsArray.slice(0, 100).join('') ||
@@ -777,12 +750,13 @@
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (IVAO)`;
 
-    // after new data, recompute pages and restart auto paging
-    showPage(1);
+    computePageCount();
+    const nextPage = currentPage >= pageCount ? 1 : currentPage + 1;
+    showPage(nextPage);
     startAutoPaging();
   }
 
-  // ---------- VATSIM ----------
+  // ------------ VATSIM ------------
 
   function vatsimDepSec(deptime) {
     if (!deptime) return null;
@@ -890,7 +864,7 @@
           <td class="status-cell ${info.statusClass}">${info.status}</td>
           <td>${gate || ''}</td>
         </tr>
-      `);
+      `;
     });
 
     const departureRows = depRowsArray.slice(0, 100).join('') ||
@@ -902,11 +876,13 @@
     const now = new Date();
     meta.textContent = `Last update: ${now.toUTCString()} – ${airport} (VATSIM)`;
 
-    showPage(1);
+    computePageCount();
+    const nextPage = currentPage >= pageCount ? 1 : currentPage + 1;
+    showPage(nextPage);
     startAutoPaging();
   }
 
-  // ---------- Main update ----------
+  // ------------ main update ------------
 
   async function update() {
     try {
@@ -936,6 +912,7 @@
     }
     airport = newAirport.toUpperCase();
     airportTitle.textContent = airport;
+    currentPage = 1;
     update();
   }
 
@@ -949,7 +926,6 @@
     }
   });
 
-  // Initialisation: load stands, then start updating
   (async () => {
     await loadStands();
     await update();
